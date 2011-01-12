@@ -1,11 +1,17 @@
 # coding=utf-8
 
+import sys
 import os.path
-import analyzer
 import re
 import os
-import BeautifulSoup
 import webbrowser
+
+CURRENTDIR = os.path.dirname(__file__)
+sys.path.append(os.path.join(CURRENTDIR, '..\\analyzer'))
+sys.path.append(os.path.join(CURRENTDIR, '..\\module'))
+
+import analyzer
+import BeautifulSoup
 
 test_htmls_dir = 'C:\\testresult\\various_sites'
 
