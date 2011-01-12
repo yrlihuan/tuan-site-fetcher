@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<grouponsites>
+    <!-- keywords from various sites. the keywords are so arranged
+         that the most distinguishing keyword appears first -->
+    <!-- for any configuration, it has to at least include two properties in
+         'save', 'original' and 'discount'-->
+    
+    <site pattern=".*" id ="aggregate">
+        <items>已购买</items>
+        <items>已经购买</items>
+        <items>人购买</items>
+        <original>原价</original>
+        <original>市场价</original>
+        <currency>&#165;</currency>
+        <currency>￥</currency>
+        <currency>¥</currency>
+        <currency>&yen;</currency>
+        <currency>元</currency>
+        <save>节省</save>
+        <time>剩余时间</time>
+        <time>数量有限</time>
+        <time>倒计时</time>
+        <time>结束</time>
+	</site>
+    
+    <!-- beijing.ayatuan.com -->
+    <site pattern="ayatuan" id="ayatuan">
+        <items>已购买</items>
+        <discount>优　惠</discount>
+        <original>市场价</original>
+        <title>今日团购</title>
+        <currency>￥</currency>
+        <discountvalue>折</discountvalue>
+        <save>节省了</save>
+        <time>距结束</time>
+    </site>
+
+    <!-- www.kutuan.com -->
+    <site pattern="kutuan" id="kutuan">
+        <items>份已购买</items>
+        <save>节省</save>
+        <original>原价</original>
+        <currency>￥</currency>
+        <time>剩余时间</time>
+    </site>
+    
+    <!-- www.groupon.cn -->
+    <site pattern="groupon" id="groupon">
+        <discountpercentage>降幅</discountpercentage>
+        <save>您节省</save>
+        <original>原价</original>
+        <currency>￥</currency>
+    </site>
+    
+    <!-- tuan.zol.cn -->
+    <site pattern="zol" id="zol">
+        <items>人已购买</items>
+        <title>今日团购</title>
+        <original>原价</original>
+        <save>立省</save>
+        <currency>￥</currency>
+        <time>剩余时间</time>
+    </site>
+    
+    <!-- www.haotehui.com -->
+    <site pattern="haotehui" id="haotehui">
+        <rush>请抓紧时间抢购</rush>
+        <original>原价</original>
+        <discount>折扣</discount>
+        <save>节省</save>
+        <currency>￥</currency>
+        <time>剩余数量</time>
+    </site>
+    
+</grouponsites>
