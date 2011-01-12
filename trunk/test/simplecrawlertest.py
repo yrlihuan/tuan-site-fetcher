@@ -1,6 +1,10 @@
-import simplecrawler
 import urlparse
 import os.path
+import sys
+
+CURRENTDIR = os.path.dirname(__file__)
+sys.path.append(os.path.join(CURRENTDIR, '..\\crawler'))
+import simplecrawler
 
 output_dir = 'c:\\testresult'
 
