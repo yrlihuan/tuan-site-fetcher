@@ -13,6 +13,8 @@ sys.path.append(os.path.join(CURRENTDIR, '..\\module'))
 import analyzer
 import BeautifulSoup
 
+import testutil
+
 test_htmls_dir = 'C:\\testresult\\various_sites'
 
 essential_tags = ['price_now', 'original', 'discount', 'save', 'image', 'title']
@@ -67,28 +69,29 @@ def test_soup_search(html='www.nuomi.com.html'):
                     print 'not found! ' + attr.string
     
 
-def test_dianping(args=None):
+def test_dianping(**args):
     site_html_file = os.path.join(test_htmls_dir, 't.dianping.com.html')
     
     markup = open(site_html_file, 'r')
     ana = analyzer.Analyzer()
     return ana(markup, site_html_file)
 
-def test_nuomi(args=None):
+def test_nuomi(**args):
     site_html_file = os.path.join(test_htmls_dir, 'www.nuomi.com.html')
     
     markup = open(site_html_file, 'r')
     ana = analyzer.Analyzer()
     return ana(markup, site_html_file)
 
-def test_site(html):
+def test_site(**args):
+    html = args['html']
     site_html_file = os.path.join(test_htmls_dir, html)
     
     markup = open(site_html_file, 'r')
     ana = analyzer.Analyzer()
     return ana(markup, html[0:-5])
 
-def test_various_sites(args=None):
+def test_various_sites(**args):
     html_files = os.listdir(test_htmls_dir)
     html_output_path = 'c:\\testresult\\test_results.html'
 
@@ -142,21 +145,6 @@ def print_results(result):
     for tag in result.info_paths:
         print tag + ': ' + str(result.info[tag])
 
-def run_test(test, verbose=False, args=None):
-    print '-' * 60
-    print 'Starting test ' + test.func_name
-    result = test(args)
-
-    if result:
-        print 'Succeed! ' + test.func_name
-    else:
-        print 'Failed! ' + test.func_name
-
-    if verbose:
-        print result
-
-    print 'Test ended ' + test.func_name
-
 if __name__ == '__main__':
-    run_test(test_various_sites)
+    testutil.run_test(test_various_sites)
 

@@ -8,8 +8,8 @@ import os.path
 import urllib2
 import urlparse
 
-sys.path.append(os.path.join(os.path.dirname(__file__), '..\\modules'))
-from BeautifulSoup import BeautifulSoup
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+from modules import BeautifulSoup
 
 class DoubleInsertionException(Exception):
     def __str__(self):
@@ -121,7 +121,7 @@ class SimpleCrawler(object):
                             continue
                            
                 pagebuffer = pagecontent.read()
-                soup = BeautifulSoup(pagebuffer)
+                soup = BeautifulSoup.BeautifulSoup(pagebuffer)
                 count = count + 1
 
                 # check if the link is redirected. if yes, we need add also the redirected page into the collection

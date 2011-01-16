@@ -12,8 +12,8 @@ import urllib2
 import imageutil
 
 CURRENTDIR = os.path.dirname(__file__)
-sys.path.append(os.path.join(CURRENTDIR, '..\\modules'))
-import BeautifulSoup
+sys.path.append(os.path.join(CURRENTDIR, '..'))
+from modules import BeautifulSoup
 
 SITE_CONFIGS = os.path.join(CURRENTDIR, 'keywords.xml')
 CITIES_LIST = os.path.join(CURRENTDIR, 'cities.xml')

@@ -8,8 +8,7 @@ import simplecrawler
 
 output_dir = 'c:\\testresult'
 
-def test_yoka_ajax(args=None):
-    print 'test_yoka_ajax'
+def test_yoka_ajax(**args):
     output_sub_dir = 'yoka'
 
     output_path = os.path.join(output_dir, output_sub_dir)
@@ -33,9 +32,7 @@ def test_yoka_ajax(args=None):
 
         index = index + 1
 
-def test_nuomi(args=None):
-    print 'test_nuomi'
-    
+def test_nuomi(**args):
     policy = simplecrawler.CrawlerPolicy()
     policy.maximum_depth = 2
     policy.maximum_pages = 20
@@ -45,7 +42,7 @@ def test_nuomi(args=None):
     for page in crawler.crawled_pages():
         print page[0]
 
-def test_aibang(args=None):
+def test_aibang(**args):
     print 'test_aibang'
 
     policy = simplecrawler.CrawlerPolicy()
@@ -57,7 +54,7 @@ def test_aibang(args=None):
     for page in crawler.crawled_pages():
         print page[0]
 
-def test_save_to_file(args=None):
+def test_save_to_file(**args):
     print 'test_save_to_file'
     output_sub_dir = 'dianping'
 
@@ -83,7 +80,7 @@ def test_save_to_file(args=None):
 
         index = index + 1
 
-def test_various_sites(args=None):
+def test_various_sites(**args):
     print 'test_various_sites'
     output_sub_dir = 'various_sites'
 
@@ -153,6 +150,6 @@ def test_various_sites(args=None):
             break
 
 if __name__ == '__main__':
-    test_various_sites()
+    testutil.run_test(test_various_sites)
     
         
