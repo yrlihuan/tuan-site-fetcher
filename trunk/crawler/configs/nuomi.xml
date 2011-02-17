@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<site id="nuomi">
+    <starturls>
+        <url>http://www.nuomi.com/</url>
+    </starturls>
+
+    <domains>
+        <s>www.nuomi.com</s>
+    </domains>
+
+    <patterns>
+        <p>/[a-z]*/[a-z0-9]*\.html$</p>
+        <p>/changecity$</p>
+    </patterns>
+
+    <maxdepth>3</maxdepth>
+    <maxpages>0</maxpages>
+</site>

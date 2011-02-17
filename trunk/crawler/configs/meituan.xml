@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<site id="meituan">
+    <starturls>
+        <url>http://www.meituan.com/</url>
+    </starturls>
+
+    <domains>
+        <s>www.meituan.com</s>
+    </domains>
+
+    <patterns>
+        <p>/index/changecity</p>
+        <p>/[a-z]*</p>
+        <p>/deal/[a-z0-9]*\.html</p>
+        <p>/[a-z]*/deal/[a-z0-9]*\.html$</p>
+    </patterns>
+
+    <maxdepth>3</maxdepth>
+    <maxpages>0</maxpages>
+</site>

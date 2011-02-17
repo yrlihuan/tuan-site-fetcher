@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<site id="dianping">
+    <starturls>
+        <url>http://t.dianping.com/</url>
+    </starturls>
+
+    <domains>
+        <s>t.dianping.com</s>
+    </domains>
+
+    <patterns>
+        <p>/deal/\d+$</p>
+        <p>/[a-z]*$</p>
+    </patterns>
+
+    <maxdepth>3</maxdepth>
+    <maxpages>0</maxpages>
+</site>

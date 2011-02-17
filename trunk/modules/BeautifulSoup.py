@@ -1170,7 +1170,12 @@ class BeautifulStoneSoup(Tag, SGMLParser):
                 name = elem
                 ind = 0
 
-            node = node.findAll(name=name, recursive=False)[ind]
+            children = node.findAll(name=name, recursive=False)
+
+            if len(children) > ind:
+                node = children[ind]
+            else:
+                return None
 
         return node
 
