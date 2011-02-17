@@ -7,11 +7,10 @@ import os
 import webbrowser
 
 CURRENTDIR = os.path.dirname(__file__)
-sys.path.append(os.path.join(CURRENTDIR, '..\\analyzer'))
-sys.path.append(os.path.join(CURRENTDIR, '..\\module'))
+sys.path.append(os.path.join(CURRENTDIR, '..'))
 
-import analyzer
-import BeautifulSoup
+from modules import BeautifulSoup
+from analyzer import pageparser
 
 import testutil
 
@@ -53,7 +52,7 @@ output_site = u"""
 def test_soup_search(html='www.nuomi.com.html'):
     site_html_file = os.path.join(test_htmls_dir, html)
 
-    siteconfigs = BeautifulSoup.BeautifulSoup(open(analyzer.SITE_CONFIGS, 'r'))
+    siteconfigs = BeautifulSoup.BeautifulSoup(open(pageparser.SITE_CONFIGS, 'r'))
     configs = siteconfigs('site')
     
     markup = open(site_html_file, 'r')
@@ -67,29 +66,14 @@ def test_soup_search(html='www.nuomi.com.html'):
                     print 'find! ' + unicode.encode(attr.string, 'gb2312')
                 else:
                     print 'not found! ' + attr.string
-    
-
-def test_dianping(**args):
-    site_html_file = os.path.join(test_htmls_dir, 't.dianping.com.html')
-    
-    markup = open(site_html_file, 'r')
-    ana = analyzer.Analyzer()
-    return ana(markup, site_html_file)
-
-def test_nuomi(**args):
-    site_html_file = os.path.join(test_htmls_dir, 'www.nuomi.com.html')
-    
-    markup = open(site_html_file, 'r')
-    ana = analyzer.Analyzer()
-    return ana(markup, site_html_file)
 
 def test_site(**args):
     html = args['html']
     site_html_file = os.path.join(test_htmls_dir, html)
     
     markup = open(site_html_file, 'r')
-    ana = analyzer.Analyzer()
-    return ana(markup, html[0:-5])
+    ana = pageparser.Parser()
+    return ana.run(markup, html[0:-5])
 
 def test_various_sites(**args):
     html_files = os.listdir(test_htmls_dir)
@@ -108,9 +92,9 @@ def test_various_sites(**args):
 
         site_html_file = os.path.join(test_htmls_dir, f)
         markup = open(site_html_file, 'r')
-        ana = analyzer.Analyzer()
+        ana = pageparser.Parser()
 
-        result = ana(markup, site)
+        result = ana.run(markup, site)
         markup.close()
         if result.error:
             print 'Failed! ' + site_html_file + ' ' + result.error
@@ -147,4 +131,5 @@ def print_results(result):
 
 if __name__ == '__main__':
     testutil.run_test(test_various_sites)
+    raw_input('Enter to continue...')
 

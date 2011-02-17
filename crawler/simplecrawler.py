@@ -7,77 +7,139 @@ import sys
 import os.path
 import urllib2
 import urlparse
+import re
+import traceback
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from modules import BeautifulSoup
-
-class DoubleInsertionException(Exception):
-    def __str__(self):
-        return 'DoubleInsertionException'
-
-class CrawlerPolicy(object):
-    def __init__(self):
-        self.domains = {}
-        self.maximum_pages = 0
-        self.maximum_depth = 0
+from crawler import policy
 
 class WebPage(object):
-    def __init__(self, url, parent, depth):
+    def __init__(self, url, parent, depth, text = ''):
         self.url = url
         self.depth = depth
         self.parent = parent
         self.visited = False
+        self.content = None
+
+        if not parent:
+            self.linktext = u''
+        else:
+            self.linktext = parent.linktext + u'/' + text
 
     def __str__(self):
         return 'Visited: ' + str(self.visited) + '\tDepth: ' + str(self.depth) + '\tURL: ' + self.url
 
     def clone(self):
-        page = WebPage(self.url, self.parent, self.depth)
-        page.visited = self.visited
+        page = WebPage(None, None, None)
+        for attr in vars(self):
+            setattr(page, attr, getattr(self, attr))
+
         return page
 
-class WebPageCollection(object):
+class CrawlerQueue(object):
     def __init__(self):
         self.__pages_dictionary = dict()
-        self.__pages_list = list()
+        self.__level_list = []
+        self.__level_pos = []
+        self.__levels = 0
 
     def has(self, url):
         return url in self.__pages_dictionary
 
     def insert(self, webpage):
         if self.has(webpage.url):
-            raise DoubleInsertionException()
+            raise Exception('Double insertion for URL: %s' % webpage.url)
         
         self.__pages_dictionary[webpage.url] = webpage
-        self.__pages_list.append(webpage)
+
+        level = webpage.depth
+        self._ensure_level(level)
+        self.__level_list[level].append(webpage)
+
+    def reactivate(self, webpage, level):
+        if not self.has(webpage.url):
+            raise Exception('URL not found: %s' % webpage.url)
+
+        if not webpage.visited:
+            raise Exception('webpage do not need reactivation: %s' % webpage.url)
+
+        newpage = webpage.clone()
+        newpage.visited = False
+        newpage.depth = level
+
+        self.__pages_dictionary[newpage.url] = newpage
+
+        self._ensure_level(level)
+        self.__level_list[level].append(newpage)
 
     def get(self, url):
         return self.__pages_dictionary[url]
 
-    def get_at(self, index):
-        return self.__pages_list[index]
+    def get_next(self):
+        l = self.__levels - 1
+        while l >= 0:
+            pages = self.__level_list[l]
+            pos = self.__level_pos[l]
+            count = len(pages)
 
-    def count(self):
-        return len(self.__pages_list)
+            while pos < count and pages[pos].visited:
+                pos += 1
 
-    def pages(self):
-        return self.__pages_list
+            if pos < count:
+                self.__level_pos[l] = pos + 1
+                return pages[pos]
+            else:
+                l -= 1
+
+        return None
+
+    def _ensure_level(self, level):
+        while level >= self.__levels:
+            self.__level_list.append([])
+            self.__level_pos.append(0)
+            self.__levels += 1
 
 class SimpleCrawler(object):
-    def __init__(self, starturl, policy):
-        if isinstance(starturl, set):
-            self.starturl = starturl
-        else:
-            self.starturl = set([starturl])
-
+    def __init__(self, policy):
         self.policy = policy
 
-    def verify_domain(self, url):
+    def verify_url(self, url):
         parseresult = urlparse.urlparse(url)
         if parseresult.scheme != 'http':
             return False
+        
+        domainmatch = False
 
-        return parseresult.netloc in self.policy.domains
+        if len(self.policy.domains) == 0:
+            domainmatch = True
+
+        for domain in self.policy.domains:
+            if isinstance(domain, basestring) and parseresult.netloc == domain:
+                domainmatch = True
+                break
+            elif hasattr(domain, 'match') and domain.match(parseresult.netloc):
+                domainmatch = True
+                break
+
+        if not domainmatch:
+            return False
+
+        patternmatch = False
+        path = parseresult.path
+
+        if path == '':
+            path = '/'
+
+        if len(self.policy.patterns) == 0:
+            patternmatch = True
+
+        for pattern in self.policy.patterns:
+            if hasattr(pattern, 'match') and pattern.match(path):
+                patternmatch = True
+                break
+
+        return patternmatch
 
     def verify_count(self, count):
         return self.policy.maximum_pages == 0 or count < self.policy.maximum_pages
@@ -86,65 +148,129 @@ class SimpleCrawler(object):
         return self.policy.maximum_depth == 0 or depth + 1 < self.policy.maximum_depth
 
     def _set_start_urls(self):
-        result = WebPageCollection()
+        queue = CrawlerQueue()
 
-        for url in self.starturl:
+        for url in self.policy.starturls:
             page = WebPage(url, None, 0)
-            result.insert(page)
+            queue.insert(page)
 
-        return result
+        return queue
+
+    def _similarity_test(self, a, b):
+        """
+        Test if two markups are actually the same one.
+        Returns: True, if a and b are considerably similar
+                 False, if a and b are different
+
+        How to test:
+        Assume that if two pages are similar if only:
+        1. the titles are the same
+        2. the links in the page differ by at most 2
+        """
+
+        soupa = BeautifulSoup.BeautifulSoup(a)
+        soupb = BeautifulSoup.BeautifulSoup(b)
+
+        # test title
+        titlea = soupa.find('title')
+        titleb = soupb.find('title')
+        if titlea.text != titleb.text:
+            return False
+
+        # test links
+        diff = 0
+        linksa = soupa.findAll('a')
+        linksb = soupb.findAll('a')
+
+        urls = set([])
+        for link in linksa:
+            urls.add(link['href'])
+
+        for link in linksb:
+            url = link['href']
+            if url not in urls:
+                diff += 1
+                if diff > 2:
+                    return False
+
+        return True
 
     def crawled_pages(self):
-        pagecollection = self._set_start_urls()
+        queue = self._set_start_urls()
         currentindex = -1
-        count = 0
 
         while True:
             try:
                 currentindex = currentindex + 1
-                
-                if currentindex >= pagecollection.count() or not self.verify_count(count):
+                currentpage = queue.get_next()
+                if not currentpage or not self.verify_count(currentindex):
                     break
 
-                currentpage = pagecollection.get_at(currentindex)
-                if currentpage.visited: # if the page has already been visited (in the case of re-direction), ignore it
-                    continue
-
-                pagecontent = urllib2.urlopen(currentpage.url)
-                redirected_url = pagecontent.geturl()
                 currentpage.visited = True
 
-                # if the page has already been visited, ignore it
-                if redirected_url != currentpage.url \
-                        and pagecollection.has(redirected_url) \
-                        and pagecollection.get(redirected_url).visited:
+                # if this is a parametered address, and if we should ignore it
+                urlcomponents = urlparse.urlparse(currentpage.url)
+                url_no_params = None
+                if urlcomponents.params != '' or urlcomponents.query != '' or urlcomponents.fragment != '':
+                    # url_no_params is a special url, which represents all
+                    # the parametered pages with the same base address
+                    url_no_params = urlparse.urlunparse([urlcomponents.scheme, urlcomponents.netloc, urlcomponents.path, '', 'no_params=True', ''])
+
+                    if queue.has(url_no_params):
+                        page_no_params = queue.get(url_no_params)
+                        if page_no_params.ignoreparams:
                             continue
-                           
-                pagebuffer = pagecontent.read()
-                soup = BeautifulSoup.BeautifulSoup(pagebuffer)
-                count = count + 1
 
-                # check if the link is redirected. if yes, we need add also the redirected page into the collection
-                if redirected_url != currentpage.url:
-                    if pagecollection.has(redirected_url):
-                        redirected = pagecollection.get(redirected_url)
-                        redirected.visited = True
+                if not currentpage.content:
+                    # send HTTP GET request
+                    pagecontent = urllib2.urlopen(currentpage.url)
+                    real_url = pagecontent.geturl()
+                    currentpage.content = pagecontent.read()
+
+                    # check if the link is redirected. if yes, we need add also the redirected page into the collection
+                    if real_url != currentpage.url:
+                        if queue.has(real_url):
+                            redirected = queue.get(real_url)
+                            redirected.visited = True
+                            redirected.content = currentpage.content
+                        else:
+                            redirected = currentpage.clone()
+                            redirected.url = real_url
+                            queue.insert(redirected)
+
+                        currentpage = redirected
+
+                # if this is a parametered address, check whether we should ignore the parameters in future
+                if url_no_params:
+                    if not queue.has(url_no_params):
+                        page_no_params = currentpage.clone()
+                        page_no_params.url = url_no_params
+                        page_no_params.ignoreparams = None # ignoreparams is a tri-state var. True, False, None
+                        queue.insert(page_no_params)
                     else:
-                        redirected = currentpage.clone()
-                        redirected.url = redirected_url
-                        pagecollection.insert(redirected)
+                        page_no_params = queue.get(url_no_params)
+                        if page_no_params.ignoreparams == None: # it could be None or False
+                            markup_old = page_no_params.content
+                            markup_new = currentpage.content
+                            print 'similarity test'
+                            page_no_params.ignoreparams = self._similarity_test(markup_old, markup_new)
+                            print page_no_params.ignoreparams
 
-                    currentpage = redirected # use the redirected page instead of the original page
+                        if page_no_params.ignoreparams:
+                            continue
 
-            except Exception as e:
-                print 'Exception caught when accessing page' + currentpage.url
+            except Exception, e:
+                print 'Exception caught when accessing page ' + currentpage.url
                 print e
+                # traceback.print_exc()
                 continue
 
-            yield currentpage, pagebuffer
+            print currentpage.url
+            yield currentpage
 
+            soup = BeautifulSoup.BeautifulSoup(currentpage.content)
             if self.verify_depth(currentpage.depth): # process the links only if the depth does not exceed the maximum
-                links = soup('a')
+                links = soup.findAll('a')
                 linkdepth = currentpage.depth + 1
 
                 for link in links:
@@ -155,11 +281,12 @@ class SimpleCrawler(object):
 
                     link_url_full = urlparse.urljoin(currentpage.url, link_url)
 
-                    if self.verify_domain(link_url_full) and not pagecollection.has(link_url_full):
-                        newpage = WebPage(link_url_full, currentpage, linkdepth)
-                        pagecollection.insert(newpage)
+                    if queue.has(link_url_full):
+                        oldpage = queue.get(link_url_full)
+                        if oldpage.depth > linkdepth:
+                            queue.reactivate(oldpage, linkdepth)
+                    elif self.verify_url(link_url_full):
+                        newpage = WebPage(link_url_full, currentpage, linkdepth, link.text)
+                        queue.insert(newpage)
 
-#        print 'Execution ended!'
-#        for page in pagecollection.pages():
-#            print page
 

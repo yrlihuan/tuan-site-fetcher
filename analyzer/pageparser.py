@@ -1,7 +1,7 @@
 # coding=utf-8
 
 """
-Help find information in a groupon web page.
+find xpath for information in a groupon web page.
 """
 
 import sys
@@ -14,27 +14,35 @@ import imageutil
 CURRENTDIR = os.path.dirname(__file__)
 sys.path.append(os.path.join(CURRENTDIR, '..'))
 from modules import BeautifulSoup
+from analyzer.tags import *
 
 SITE_CONFIGS = os.path.join(CURRENTDIR, 'keywords.xml')
 CITIES_LIST = os.path.join(CURRENTDIR, 'cities.xml')
-
-TAG_DISCOUNT = 'discount'
-TAG_ORIGINAL = 'original'
-TAG_SAVE = 'save'
-TAG_PRICE = 'price_now'
-TAG_LOCATION = 'location'
-TAG_ITEMS = 'items'
-TAG_TITLE = 'title'
-TAG_IMAGE = 'image'
-TAG_CURRENCY = 'currency'
-TAG_CITY = 'city'
-TAG_DETAILS = 'details'
 
 DIGITS_PATTERN = re.compile(u'\d+(\.\d+)?')
 MARKUP_CHAR = re.compile(u'&#\d+;')
 EMPTY_PATTERN = re.compile('\A\s*\Z')
 
-DETAILS_KEYWORDS = [u'地址', u'电话', u'本单', u'详情', u'介绍', u'预订', u'预约', u'快递', u'路线', u'交通', u'截至']
+DETAILS_KEYWORDS = [u'地址', u'电话', u'本单', u'详情', u'介绍', u'预订', u'预约', u'快递', u'路线', u'交通']
+
+def get_url_from_img_node(site, node):
+    imgurl = None
+    if node.has_key('src'):
+        imgurl = node['src']
+    elif node.has_key('lazysrc'):
+        imgurl = node['lazysrc']
+
+    if imgurl and imgurl != '':
+        if isinstance(imgurl, unicode):
+            image_url = imgurl.encode('utf8')
+
+        # some site appends lots of '../' or '/..' before the actual path, remove them all
+        while image_url[0:3] == '/..' or image_url[0:3] == '../':
+            image_url = image_url[3:]
+
+        return urlparse.urljoin('http://' + site, image_url)
+    else:
+        return None
 
 class KeywordsSet(object):
     def __init__(self):
@@ -53,7 +61,13 @@ class KeywordsSet(object):
     def get(self, attr):
         return self.__keyset.get(attr)
 
-class AnalyzeResult(object):
+class ParseContext(object):
+    def __init__(self):
+        self.markup = None
+        self.soup = None
+        self.site = None
+
+class ParseResult(object):
     def __init__(self):
         self.site_config = ''
         self.site = None
@@ -62,51 +76,165 @@ class AnalyzeResult(object):
         self.info_paths = {}
         self.info = {}
 
-class Analyzer(object):
-    siteconfigs = None
-    cities = None
+    def match(self, ar):
+        if len(self.info_paths) != len(ar.info_paths):
+            return False
 
-    @staticmethod
-    def __ensure_class_init():
-        if not Analyzer.siteconfigs:
-            Analyzer.siteconfigs = BeautifulSoup.BeautifulSoup(open(SITE_CONFIGS, 'r'))
+        for tag in self.info_paths:
+            if tag not in ar.info_paths or ar.info_paths[tag] != self.info_paths[tag]:
+                return False
 
-        if not Analyzer.cities:
-            cities = {}
-            cities_config = BeautifulSoup.BeautifulSoup(open(CITIES_LIST, 'r'))
+        return True
 
-            cities_list = cities_config('city')
-            for city in cities_list:
-                cities[city.text] = city['id']
+    def extract(self, url, markup):
+        result = {}
+        soup = BeautifulSoup.BeautifulSoup(markup)
+        site = urlparse.urlparse(url).netloc
 
-            Analyzer.cities = cities
-
-    def __call__(self, markup, site=None):
-        if not isinstance(markup, str) and hasattr(markup, 'read'):
-            markup = markup.read()
-        
-        Analyzer.__ensure_class_init()
-        self.markup = markup
-        self.soup = BeautifulSoup.BeautifulSoup(markup)
-        self.site = site
-
-        result = AnalyzeResult()
-        result.site = self.site
-
-        self._get_discount_info(result)
-        if result.error:
-            return result
-
-        self._get_groupon_title(result)
-        if result.error:
-            return result
-
-        self._get_details(result)
-        self._try_get_pic(result)
+        for tag in self.info_paths:
+            node = soup.get_node(self.info_paths[tag])
+            if node:
+                if tag == TAG_IMAGE:
+                    result[tag] = get_url_from_img_node(site, node).decode('utf8')
+                else:
+                    result[tag] = node.text
 
         return result
 
-    def _get_discount_info(self, result):
+class Parser(object):
+    def __init__(self):
+        self.siteconfigs = BeautifulSoup.BeautifulSoup(open(SITE_CONFIGS, 'r'))
+
+        self.cities = {}
+        cities_config = BeautifulSoup.BeautifulSoup(open(CITIES_LIST, 'r'))
+
+        cities_list = cities_config('city')
+        for city in cities_list:
+            self.cities[city.text] = city['id']
+
+    def run(self, markup, site=None):
+        if not isinstance(markup, str) and hasattr(markup, 'read'):
+            markup = markup.read()
+
+        context = ParseContext()
+        context.markup = markup
+        context.soup = BeautifulSoup.BeautifulSoup(markup)
+        context.site = site
+
+        result = ParseResult()
+        result.site = site
+
+        self._get_discount_info(result, context)
+        if result.error:
+            return result
+
+        self._get_groupon_title(result, context)
+        if result.error:
+            return result
+
+        self._get_pic(result, context)
+        if result.error:
+            return result
+
+        return result
+
+    def probe(self, seeds):
+        probing_results = []
+        for page in seeds:
+            if hasattr(page, 'url'):
+                url = page.url
+            else:
+                raise TypeError('Type with attr url is expected.')
+
+            if hasattr(page, 'data'):
+                markup = page.data
+            elif hasattr(page, 'content'):
+                markup = page.content
+            else:
+                raise TypeError('Type with attr data is expected.')
+        
+            site = urlparse.urlparse(url).netloc
+            result = self.run(markup, site)
+
+            if result.error:
+                continue
+
+            # if result is the same as one of previous results, set the result the old one
+            for r in probing_results:
+                if result.match(r):
+                    result = r
+                    break
+
+            probing_results.append(result)
+
+        ml_result = None # most likely result
+        occurence = 0
+
+        for r in probing_results:
+            cnt = probing_results.count(r)
+            if cnt > occurence:
+                occurence, ml_result = cnt, r
+
+        return ml_result
+
+    def run_batch(self, pages, seeds=[]):
+        """
+        provided a batch of web pages from the same web site, return analysis
+        results for them.
+        seeds are a collection of pages randomly selected. they are used to
+        find the initial set of probing results
+        """
+        cached_results = []
+        results = []
+        success_count = 0
+        page_count = 0
+
+        ml_result = self.probe(seeds)
+
+        if ml_result:
+            cached_results.append(ml_result)
+
+        for page in pages:
+            foundmatch = False
+            page_count += 1
+            
+            if hasattr(page, 'url'):
+                url = page.url
+            else:
+                raise TypeError('Type with attr url is expected.')
+
+            if hasattr(page, 'data'):
+                markup = page.data
+            elif hasattr(page, 'content'):
+                markup = page.content
+            else:
+                raise TypeError('Type with attr data is expected.')
+
+            for r in cached_results:
+                if self._verify_result_on_page(markup, r):
+                    results.append(r)
+                    success_count += 1
+                    foundmatch = True
+                    break
+
+            if not foundmatch:
+                site = urlparse.urlparse(url).netloc
+                r = self.run(markup, site)
+
+                if not r.error:
+                    cached_results.append(r)
+                    results.append(r)
+                    success_count += 1
+                else:
+                    results.append(None)
+
+        print 'total pages: %i' % page_count
+        print 'total results: %i' % len(cached_results)
+        print 'total success: %i' % success_count
+
+        return results
+
+    def _get_discount_info(self, result, context):
         """
         this method tries to extract the following information from the html:
         currency mark,
@@ -122,14 +250,14 @@ class Analyzer(object):
         node = None
         for config in configs:
             keywords = KeywordsSet()
-            if self.site and not re.compile(config['pattern']).search(self.site):
+            if context.site and not re.compile(config['pattern']).search(context.site):
                 continue
 
             for attr in config.childGenerator():
                 if isinstance(attr, BeautifulSoup.Tag) and attr.string and len(attr.string) > 0: # skip invalid or empty values
                     keywords.add(attr.name, attr.string)
 
-            candidates = self._find_node(self.soup, keywords)
+            candidates = self._find_node(context.soup, keywords)
             if candidates:
                 result.site_config = config['id']
                 break 
@@ -143,7 +271,7 @@ class Analyzer(object):
 
         # the node we got usually contains 1k or so chars.
         # use a search & match method to extract discount info
-        key_attrs = [TAG_CURRENCY, TAG_ORIGINAL, TAG_SAVE, TAG_DISCOUNT]
+        key_attrs = [TAG_CURRENCY, TAG_ORIGINAL, TAG_SAVED, TAG_DISCOUNT]
         config = self.siteconfigs.find('site', attrs={'id' : result.site_config})
 
         keywords = KeywordsSet()
@@ -165,12 +293,12 @@ class Analyzer(object):
             return result
 
         for tag in discount_info:
-            result.info_paths[tag] = self.soup.get_path(discount_info[tag])
+            result.info_paths[tag] = context.soup.get_path(discount_info[tag])
             result.info[tag] = self._convert_to_number(discount_info[tag])
 
         return result
 
-    def _get_groupon_title(self, result):
+    def _get_groupon_title(self, result, context):
         # find the groupon product's title
         # here we assume:
         # title appears before the original price tag
@@ -185,8 +313,8 @@ class Analyzer(object):
         else:
             original = result.info[TAG_ORIGINAL]
 
-        if TAG_SAVE in result.info:
-            current = original - result.info[TAG_SAVE]
+        if TAG_SAVED in result.info:
+            current = original - result.info[TAG_SAVED]
         elif TAG_DISCOUNT in result.info:
             current = original * result.info[TAG_DISCOUNT]
         elif TAG_PRICE in result.info:
@@ -199,84 +327,40 @@ class Analyzer(object):
         # original_str = '%d' % (original)
         yuan_str = u'元'
 
-        original_node = self.soup.get_node(result.info_paths[TAG_ORIGINAL])
+        original_node = context.soup.get_node(result.info_paths[TAG_ORIGINAL])
         for elem in original_node.previousGenerator():
             if not isinstance(elem, BeautifulSoup.NavigableString) or len(elem) < 15 or self._is_empty(elem):
                 continue
 
             if elem.find(yuan_str) >= 0:
-                result.info_paths[TAG_TITLE] = self.soup.get_path(elem)
+                result.info_paths[TAG_TITLE] = context.soup.get_path(elem)
                 result.info[TAG_TITLE] = elem
                 return
 
         result.error = 'can not find title'
 
-    def _get_details(self, result):
-        # get the node containing detail info
-        # the node must be a sibling of one of the title node's ancestor
-        nodes = []
-        for info in result.info_paths:
-            if info != TAG_TITLE:
-                nodes.append(self.soup.get_node(result.info_paths[info]))
-
-        node = self._get_ancestor_of(nodes)
-        details_node = None
-
-        # the node contains title and discount info
-        while node != self.soup:
-            for n in node.nextSiblingGenerator():
-                if self._is_details_node(n):
-                    details_node = n
-                    break
-
-            if details_node:
-                break
-
-            for n in node.previousSiblingGenerator():
-                if self._is_details_node(n):
-                    details_node = n
-                    break
-
-            if details_node:
-                break
-
-            node = node.parent
-
-        if details_node:
-            result.info[TAG_DETAILS] = details_node.text
-            result.info_paths[TAG_DETAILS] = self.soup.get_path(details_node)
-        else:
-            result.warnings.append('Does not find details node')
-            
-
-    def _try_get_pic(self, result):
-
-        tried_images = []
-        title_node = self.soup.get_node(result.info_paths[TAG_ORIGINAL])
+    def _get_pic(self, result, context):
+        tried_images = set()
+        title_node = context.soup.get_node(result.info_paths[TAG_ORIGINAL])
 
         node = title_node.parent
-        while node != self.soup:
+        while node != context.soup:
             imgs = node.findAll('img')
             for img in imgs:
                 if img in tried_images:
                     continue
 
-                imgurl = None
-                if img.has_key('src'):
-                    imgurl = img['src']
-                elif img.has_key('lazysrc'):
-                    imgurl = img['lazysrc']
-
-                if imgurl and imgurl != '' and self._is_product_image(imgurl):
-                    result.info_paths[TAG_IMAGE] = self.soup.get_path(img)
-                    result.info[TAG_IMAGE] = urlparse.urljoin('http://' + self.site, imgurl)
+                imgurl = get_url_from_img_node(context.site, img)
+                if imgurl and self._is_product_image(imgurl):
+                    result.info_paths[TAG_IMAGE] = context.soup.get_path(img)
+                    result.info[TAG_IMAGE] = imgurl.decode('utf8')
                     return
 
-                tried_images.append(img)
+                tried_images.add(img)
 
             node = node.parent
         
-        result.warnings.append('can not find product image')
+        result.error = 'can not find product image'
 
     def _find_node(self, root, keywords):
         # This function is used to find a node in the html file that contains the keywords
@@ -468,7 +552,7 @@ class Analyzer(object):
         # </table>
         # this function try to utilize these information to find the needed info
 
-        key_attrs = [TAG_DISCOUNT, TAG_ORIGINAL, TAG_SAVE]
+        key_attrs = [TAG_DISCOUNT, TAG_ORIGINAL, TAG_SAVED]
         elems = []
         found_key_attr = False
         found_two_attrs = False
@@ -563,13 +647,6 @@ class Analyzer(object):
         return result
 
     def _is_product_image(self, image_url):
-        if isinstance(image_url, unicode):
-            image_url = image_url.encode('utf8')
-
-        while image_url[0:3] == '/..' or image_url[0:3] == '../':
-            image_url = image_url[3:]
-
-        image_url = urlparse.urljoin('http://' + self.site, image_url)
         addr = urlparse.urlparse(image_url)
         if addr.netloc == '':
             return False
@@ -602,19 +679,6 @@ class Analyzer(object):
             print ex
             return False
 
-    def _is_details_node(self, node):
-        if not isinstance(node, BeautifulSoup.Tag):
-            return False
-
-        html_text = node.text
-        count = 0
-
-        for keyword in DETAILS_KEYWORDS:
-            if html_text.find(keyword) >= 0:
-                count += 1
-
-        return count >= 3
-
     def _find_depth(self, node, root):
         depth = 0
         while node != root:
@@ -629,10 +693,10 @@ class Analyzer(object):
 
         return child == node
 
-    def _get_ancestor_of(self, nodes):
+    def _get_ancestor_of(self, nodes, context):
         paths = []
         for node in nodes:
-            paths.append(self.soup.get_path(node))
+            paths.append(context.soup.get_path(node))
 
         path_prefix = paths[0]
         for path in paths[1:]:
@@ -645,7 +709,7 @@ class Analyzer(object):
             path_prefix = path_prefix[:pos]
 
         last_slash_pos = path_prefix.rindex('/')
-        return self.soup.get_node(path_prefix[0:last_slash_pos])
+        return context.soup.get_node(path_prefix[0:last_slash_pos])
 
     def _find_match_under_node(self, match, node, searched_child):
         if match.search(node.text):
@@ -665,9 +729,9 @@ class Analyzer(object):
         for precision in (0.1, 0.5):
             if abs(((p1 - p2) / p1) * 10 - discount) < precision:
                 if switched:
-                    return (TAG_SAVE, TAG_ORIGINAL, TAG_DISCOUNT)
+                    return (TAG_SAVED, TAG_ORIGINAL, TAG_DISCOUNT)
                 else:
-                    return (TAG_ORIGINAL, TAG_SAVE, TAG_DISCOUNT)
+                    return (TAG_ORIGINAL, TAG_SAVED, TAG_DISCOUNT)
             elif abs((p2 / p1) * 10 - discount) < precision:
                 if switched:
                     return (TAG_PRICE, TAG_ORIGINAL, TAG_DISCOUNT)
@@ -687,4 +751,15 @@ class Analyzer(object):
 
     def _is_empty(self, s):
         return EMPTY_PATTERN.match(s) != None
+
+    def _verify_result_on_page(self, markup, result):
+        soup = BeautifulSoup.BeautifulSoup(markup)
+
+        for prop in result.info_paths:
+            path = result.info_paths[prop]
+            node = soup.get_node(path)
+            if not node:
+                return False
+
+        return True
 

@@ -7,50 +7,110 @@ storage api from GAE is used.
 This module provides a unified way to access data storage submodule.
 """
 import logging
+import traceback
 
-storageimpl = None
-
+db = None
 try:
-    from gaestorage import GaeStorage
-    storageimpl = GaeStorage()
-except Exception, ex:
-    logging.info('test purpose only')
-    logging.error(ex)
-
-try:
-    if not storageimpl:
-        from sqlitestorage import SqliteStorage
-        storageimpl = SqliteStorage()
+    from google.appengine.ext import db
 except Exception, ex:
     logging.error(ex)
 
-SITE = 'site'
-PAGE = 'page'
+if not db:
+    import sqlitedb as db
 
-def add_site(siteid):
-    update_site(siteid)
+class Site(db.Model):
+    siteid = db.StringProperty(required=True)
 
-def update_site(siteid, **properties):
-    if 'siteid' not in properties:
-        properties['siteid'] = siteid
+class Page(db.Model):
+    url = db.StringProperty(required=True)
+    siteid = db.StringProperty(required=True)
+    data = db.TextProperty()
+    updatedate = db.DateTimeProperty()
+    infopage = db.BooleanProperty()
+    parserid = db.IntergerProperty()
+    linktext = db.StringProperty()
 
-    storageimpl.create_or_update(SITE, 'siteid', **properties)
+class Parser(db.Model):
+    parserid = db.IntergerProperty(required=True)
+    siteid = db.StringProperty(required=True)
+    title = db.StringProperty()
+    discount = db.StringProperty()
+    original = db.StringProperty()
+    save = db.StringProperty()
+    price_now = db.StringProperty()
+    details = db.StringProperty()
+    image = db.StringProperty()
+    city = db.StringProperty()
 
-def get_sites(**restrictions):
-    return storageimpl.query(SITE, **restrictions)
+class Groupon(db.Model):
+    siteid = db.StringProperty(required=True)
+    title = db.StringProperty(required=True)
+    original = db.FloatProperty()
+    discount = db.FloatProperty()
+    saved = db.FloatProperty()
+    items = db.FloatProperty()
+    price_now = db.FloatProperty()
+    image = db.StringProperty()
+    city = db.StringProperty()
+    url = db.StringProperty()
 
-def add_page(siteid, url, **properties):
-    if 'siteid' not in properties:
-        properties['siteid'] = siteid
+SITE = 'Site'
+PAGE = 'Page'
+PARSER = 'Parser'
+GROUPON = 'Groupon'
 
-    storageimpl.create_or_update(PAGE, 'url', **properties)
+def add_or_update(table, primarykey = None, **properties):
+    datatype = get_type_for_table(table)
 
-def update_page(url, **properties):
-    if 'url' not in properties:
-        properties['url'] = url
+    if not primarykey or primarykey not in properties:
+        key = None
+        entity = None
+    else:
+        key = str(properties[primarykey])
+        entity = datatype.get_by_key_name(key)
 
-    storageimpl.create_or_update(PAGE, 'url', **properties)
+    if not entity:
+        if key:
+            entity = datatype(key_name=key, **properties)
+        else:
+            entity = datatype(**properties)
+    else:
+        for prop in properties:
+            setattr(entity, prop, properties[prop])
+        
+    entity.put()
 
-def get_pages(**restrictions):
-    return storageimpl.query(PAGE, **restrictions)
+def query(table, **restrictions):
+    t = get_type_for_table(table)
 
+    if restrictions == {}:
+        return t.all()
+    else:
+        query_str = generate_selection(**restrictions)
+        return t.gql(query_str, **restrictions)
+
+def delete(table, **restrictions):
+    for entity in query(table, **restrictions):
+        entity.delete()
+
+def generate_selection(**restrictions):
+    if restrictions == {}:
+        return ''
+    else:
+        s = 'WHERE '
+        for r in restrictions:
+            s += '%s = :%s AND ' % (r, r)
+
+        return s[:-5]
+
+def get_type_for_table(table):
+    if table == SITE:
+        return Site
+    elif table == PAGE:
+        return Page
+    elif table == PARSER:
+        return Parser
+    elif table == GROUPON:
+        return Groupon
+    else:
+        raise TypeError('Can not determine appropriate type for table: %s' % table)

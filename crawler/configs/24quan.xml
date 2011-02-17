@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<site id="24quan">
+    <starturls>
+        <url>http://www.24quan.com/</url>
+    </starturls>
+
+    <domains>
+        <s>www.24quan.com</s>
+    </domains>
+
+    <patterns>
+        <p>/[a-z]*$</p>
+        <p>/changecity.php</p>
+        <p>/team/\d*\.html</p>
+    </patterns>
+
+    <maxdepth>4</maxdepth>
+    <maxpages>0</maxpages>
+</site>

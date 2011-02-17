@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<site id="lashou">
+    <starturls>
+        <url>http://www.lashou.com/</url>
+    </starturls>
+
+    <domains>
+        <s>www.lashou.com</s>
+    </domains>
+
+    <patterns>
+        <p>/deal/[a-z]+/\d+.html$</p>
+        <p>/[a-z]*$</p>
+    </patterns>
+
+    <maxdepth>3</maxdepth>
+    <maxpages>0</maxpages>
+</site>

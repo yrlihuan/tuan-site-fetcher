@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<site id="ayatuan">
+    <starturls>
+        <url>http://user.ayatuan.com/Handlers/getUserInfo.ashx?t=1</url>
+    </starturls>
+
+    <domains>
+        <p>[a-z]*\.ayatuan\.com</p>
+    </domains>
+
+    <patterns>
+        <p>/\d*$</p>
+    </patterns>
+
+    <maxdepth>3</maxdepth>
+    <maxpages>0</maxpages>
+</site>
