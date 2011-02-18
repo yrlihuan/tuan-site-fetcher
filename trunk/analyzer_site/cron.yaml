@@ -1,0 +1,5 @@
+cron:
+- description: regularly scan the web sites and get groupon info
+  url: /cron/update_sites
+  schedule: every 12 minutes
+
