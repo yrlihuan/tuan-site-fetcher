@@ -14,16 +14,19 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from modules import BeautifulSoup
 from crawler import policy
 
+OUTER_SEPARATOR = '=]%'
+INNER_SEPARATOR = '[=%'
+
 class WebPage(object):
-    def __init__(self, url, parent, depth, text = ''):
+    def __init__(self, url, parent, depth, text='', visited=False):
         self.url = url
         self.depth = depth
         self.parent = parent
-        self.visited = False
+        self.visited = visited
         self.content = None
 
         if not parent:
-            self.linktext = u''
+            self.linktext = text
         else:
             self.linktext = parent.linktext + u'/' + text
 
@@ -43,6 +46,55 @@ class CrawlerQueue(object):
         self.__level_list = []
         self.__level_pos = []
         self.__levels = 0
+
+    def serialize(self):
+        data = ''
+        for level in self.__level_list:
+            for page in level:
+                if hasattr(page, 'ignoreparams'):
+                    continue
+
+                depth_str = str(page.depth)
+
+                if page.visited:
+                    visited_str = '1'
+                else:
+                    visited_str = '0'
+
+                link_parts = page.linktext.split('/')
+                link_str = ''
+                for text in link_parts:
+                    if len(text) > 5:
+                        text = text[0:4]
+
+                    link_str += '/' + text
+
+                data += page.url + INNER_SEPARATOR + \
+                        link_str + INNER_SEPARATOR + \
+                        depth_str + INNER_SEPARATOR + \
+                        visited_str + OUTER_SEPARATOR
+
+        return data
+
+    @classmethod
+    def deserialize(cls, data):
+        queue = cls()
+        items = data.split(OUTER_SEPARATOR)
+
+        for item in items:
+            if item == '':
+                continue
+
+            fields = item.split(INNER_SEPARATOR)
+            url = fields[0]
+            linktext = fields[1]
+            depth = int(fields[2])
+            visited = fields[3] == '1'
+
+            page = WebPage(url, None, depth, linktext, visited)
+            queue.insert(page)
+
+        return queue
 
     def has(self, url):
         return url in self.__pages_dictionary
@@ -101,8 +153,9 @@ class CrawlerQueue(object):
             self.__levels += 1
 
 class SimpleCrawler(object):
-    def __init__(self, policy):
+    def __init__(self, policy, data=None):
         self.policy = policy
+        self.initialize_queue(data)
 
     def verify_url(self, url):
         parseresult = urlparse.urlparse(url)
@@ -147,14 +200,19 @@ class SimpleCrawler(object):
     def verify_depth(self, depth):
         return self.policy.maximum_depth == 0 or depth + 1 < self.policy.maximum_depth
 
-    def _set_start_urls(self):
-        queue = CrawlerQueue()
+    def initialize_queue(self, data):
+        if data:
+            queue = CrawlerQueue.deserialize(data)
+        else:
+            queue = CrawlerQueue()
+            for url in self.policy.starturls:
+                page = WebPage(url, None, 0)
+                queue.insert(page)
 
-        for url in self.policy.starturls:
-            page = WebPage(url, None, 0)
-            queue.insert(page)
+        self.queue = queue
 
-        return queue
+    def save_crawler_state(self):
+        return self.queue.serialize()
 
     def _similarity_test(self, a, b):
         """
@@ -196,7 +254,7 @@ class SimpleCrawler(object):
         return True
 
     def crawled_pages(self):
-        queue = self._set_start_urls()
+        queue = self.queue
         currentindex = -1
 
         while True:
@@ -252,9 +310,9 @@ class SimpleCrawler(object):
                         if page_no_params.ignoreparams == None: # it could be None or False
                             markup_old = page_no_params.content
                             markup_new = currentpage.content
-                            print 'similarity test'
+                            # print 'similarity test'
                             page_no_params.ignoreparams = self._similarity_test(markup_old, markup_new)
-                            print page_no_params.ignoreparams
+                            # print page_no_params.ignoreparams
 
                         if page_no_params.ignoreparams:
                             continue
@@ -265,9 +323,8 @@ class SimpleCrawler(object):
                 # traceback.print_exc()
                 continue
 
-            print currentpage.url
-            yield currentpage
 
+            # add links to queue
             soup = BeautifulSoup.BeautifulSoup(currentpage.content)
             if self.verify_depth(currentpage.depth): # process the links only if the depth does not exceed the maximum
                 links = soup.findAll('a')
@@ -288,5 +345,9 @@ class SimpleCrawler(object):
                     elif self.verify_url(link_url_full):
                         newpage = WebPage(link_url_full, currentpage, linkdepth, link.text)
                         queue.insert(newpage)
+
+
+            print currentpage.url
+            yield currentpage
 
 

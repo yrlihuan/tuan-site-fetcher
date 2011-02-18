@@ -17,7 +17,7 @@ def read_config(config):
     elif isinstance(config, basestring) and config[:5] == u'<?xml':
         buf = config
     else:
-        raise TypeError('Can not import configuration from %s' % str(type(config)))
+        raise TypeError('Can not import configuration from %s' % str(config))
 
     policy = CrawlerPolicy()
     soup = BeautifulSoup.BeautifulSoup(buf)

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <site id="local">
     <starturls>
-        <url>http://localhost:8015/www.nuomi.com/beijing/</url>
+        <url>http://localhost:8014/www.nuomi.com/beijing.html</url>
     </starturls>
 
     <domains>
@@ -10,10 +10,7 @@
 
     <patterns>
         <p>/www.nuomi.com/[a-z]*/[a-z0-9]*\.html$</p>
-        <p>/www.nuomi.com/[a-z]*/[a-z0-9]*\.html@ref=hometitle$</p>
-        <p>/www.nuomi.com/[a-z]*/$</p>
-        <p>/www.nuomi.com/[a-z]*$</p>
-        <p>/www.nuomi.com/changecity</p>
+        <p>/www.nuomi.com/[a-z]*\.html$</p>
     </patterns>
 
     <maxdepth>3</maxdepth>
