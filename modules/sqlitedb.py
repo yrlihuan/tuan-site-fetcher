@@ -2,14 +2,41 @@ import sqlite3
 import datetime
 import random
 
+class Text(unicode):
+  def __new__(cls, arg=None, encoding=None):
+    if arg is None:
+      arg = u''
+    if isinstance(arg, unicode):
+      if encoding is not None:
+        raise TypeError('Text() with a unicode argument '
+                        'should not specify an encoding')
+      return super(Text, cls).__new__(cls, arg)
+
+    if isinstance(arg, str):
+      if encoding is None:
+        encoding = 'ascii'
+      return super(Text, cls).__new__(cls, arg, encoding)
+
+    raise TypeError('Text() argument should be str or unicode, not %s' %
+                    type(arg).__name__)
+
 def adapt_bool(b):
     return str(b)
 
 def convert_bool(s):
     return s == 'True'
 
+def adapt_ltext(text):
+    return text
+
+def convert_ltext(text):
+    result = Text(text, 'utf8')
+    return result
+
 sqlite3.register_adapter(bool, adapt_bool)
 sqlite3.register_converter('boolean', convert_bool)
+sqlite3.register_adapter(Text, adapt_ltext)
+sqlite3.register_converter('LTEXT', convert_ltext)
 
 SQLITEFILE = 'storage'
 CONN = sqlite3.connect(SQLITEFILE, detect_types=sqlite3.PARSE_DECLTYPES)
@@ -76,7 +103,7 @@ class DBProperty(object):
     def validate(self, value):
         return isinstance(value, self.Type)
 
-class IntergerProperty(DBProperty):
+class IntegerProperty(DBProperty):
     Type = int
     SqlType = 'INTEGER'
     Default = 0
@@ -101,7 +128,10 @@ class FloatProperty(DBProperty):
     SqlType = 'REAL'
     Default = 0.0
 
-TextProperty = StringProperty
+class TextProperty(DBProperty):
+    Type = Text
+    SqlType = 'LTEXT'
+    Default = Text()
 
 class Query(object):
     def __init__(self, entity_cls, query_str, **properties):

@@ -20,6 +20,10 @@ if not db:
 
 class Site(db.Model):
     siteid = db.StringProperty(required=True)
+    state = db.StringProperty()
+    lastupdate = db.DateTimeProperty()
+    error = db.TextProperty()
+    data = db.TextProperty()
 
 class Page(db.Model):
     url = db.StringProperty(required=True)
@@ -27,16 +31,15 @@ class Page(db.Model):
     data = db.TextProperty()
     updatedate = db.DateTimeProperty()
     infopage = db.BooleanProperty()
-    parserid = db.IntergerProperty()
+    parserid = db.IntegerProperty()
     linktext = db.StringProperty()
 
 class Parser(db.Model):
-    parserid = db.IntergerProperty(required=True)
     siteid = db.StringProperty(required=True)
     title = db.StringProperty()
     discount = db.StringProperty()
     original = db.StringProperty()
-    save = db.StringProperty()
+    saved = db.StringProperty()
     price_now = db.StringProperty()
     details = db.StringProperty()
     image = db.StringProperty()
@@ -51,16 +54,30 @@ class Groupon(db.Model):
     items = db.FloatProperty()
     price_now = db.FloatProperty()
     image = db.StringProperty()
-    city = db.StringProperty()
     url = db.StringProperty()
+    city = db.TextProperty()
 
 SITE = 'Site'
 PAGE = 'Page'
 PARSER = 'Parser'
 GROUPON = 'Groupon'
 
+def text_type_converter(datatype, properties):
+    for prop in properties:
+        dbProperty = getattr(datatype, prop)
+        if isinstance(dbProperty, db.TextProperty):
+            properties[prop] = db.Text(properties[prop])
+
+def linebreak_remover(datatype, properties):
+    for prop in properties:
+        dbProperty = getattr(datatype, prop)
+        if isinstance(dbProperty, db.StringProperty) and '\n' in properties[prop]:
+            properties[prop].replace('\n', '')
+
 def add_or_update(table, primarykey = None, **properties):
     datatype = get_type_for_table(table)
+    text_type_converter(datatype, properties)
+    linebreak_remover(datatype, properties)
 
     if not primarykey or primarykey not in properties:
         key = None
@@ -82,6 +99,8 @@ def add_or_update(table, primarykey = None, **properties):
 
 def query(table, **restrictions):
     t = get_type_for_table(table)
+    text_type_converter(t, restrictions)
+    linebreak_remover(t, restrictions)
 
     if restrictions == {}:
         return t.all()
