@@ -10,6 +10,12 @@ handlers:
 - url: /
   script: helloworld.py
 
+- url: /rpc
+  script: rpc/handler.py
+
+- url: /testonly
+  script: helloworld.py
+
 - url: /update_progress
   script: status.py
 
