@@ -18,6 +18,11 @@ except Exception, ex:
 if not db:
     import sqlitedb as db
 
+SITE = 'Site'
+PAGE = 'Page'
+PARSER = 'Parser'
+GROUPON = 'Groupon'
+
 class Site(db.Model):
     siteid = db.StringProperty(required=True)
     state = db.StringProperty()
@@ -57,10 +62,35 @@ class Groupon(db.Model):
     url = db.StringProperty()
     city = db.TextProperty()
 
-SITE = 'Site'
-PAGE = 'Page'
-PARSER = 'Parser'
-GROUPON = 'Groupon'
+class EntityObject(object):
+    model_properties_cache = {}
+
+    @classmethod
+    def get_properties(cls, db_model_cls):
+        if db_model_cls in cls.model_properties_cache:
+            props = cls.model_properties_cache[db_model_cls]
+        else:
+            props = []
+            model_cls_props = vars(db_model_cls)
+            for p in model_cls_props:
+                if isinstance(model_cls_props[p], db.Property):
+                    props.append(p)
+
+            cls.model_properties_cache[db_model_cls] = props
+
+        return props
+
+    @classmethod
+    def clone_from_db_model(cls, db_model):
+        properties = cls.get_properties(db_model.__class__)
+        entity_object = cls()
+
+        for prop in properties:
+            if hasattr(db_model, prop):
+                value = getattr(db_model, prop)
+                setattr(entity_object, prop, value)
+
+        return entity_object
 
 def text_type_converter(datatype, properties):
     for prop in properties:

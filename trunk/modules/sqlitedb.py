@@ -103,6 +103,8 @@ class DBProperty(object):
     def validate(self, value):
         return isinstance(value, self.Type)
 
+Property=DBProperty
+
 class IntegerProperty(DBProperty):
     Type = int
     SqlType = 'INTEGER'

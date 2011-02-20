@@ -1,4 +1,5 @@
 import sys
+import os
 import os.path
 import cgi
 
@@ -14,8 +15,16 @@ class MainPage(webapp.RequestHandler):
         self.response.headers['Content-Type'] = 'text/plain'
         self.response.out.write('Hello, webapp World!\n')
 
+class TestOnly(webapp.RequestHandler):
+    def get(self):
+        self.response.headers['Content-Type'] = 'text/plain'
+        helloworld = 'helloworld!'
+        self.response.out.write(str(os.environ))
+
+
 application = webapp.WSGIApplication(
-                                     [('/', MainPage)],
+                                     [('/', MainPage),
+                                     ('/testonly', TestOnly)],
                                      debug=True)
 
 def main():
