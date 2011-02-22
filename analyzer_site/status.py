@@ -8,6 +8,7 @@ from google.appengine.ext.webapp.util import run_wsgi_app
 from google.appengine.ext import db
 
 from modules import storage
+from modules import quota
 
 class UpdateProgress(webapp.RequestHandler):
     def get(self):
@@ -20,6 +21,9 @@ class UpdateProgress(webapp.RequestHandler):
             out.write(site.siteid + '\n')
             out.write(site.state + '\n')
             out.write(site.error + '\n')
+
+        s = quota.update()
+        out.write(str(s))
         
 application = webapp.WSGIApplication(
                                      [('/update_progress', UpdateProgress)],

@@ -11,14 +11,17 @@ from datetime import datetime
 CURRENTDIR = os.path.dirname(__file__)
 sys.path.append(os.path.join(CURRENTDIR, '..'))
 
-from modules.BeautifulSoup import BeautifulSoup
 from modules import storage
+from modules.storage import Site
+from modules.BeautifulSoup import BeautifulSoup
 from crawler.simplecrawler import SimpleCrawler
 from crawler import policy
 from analyzer.pageparser import Parser
 from analyzer.pageparser import ParseResult
 from analyzer.extractor import Extractor
 from analyzer.tags import *
+
+EXPORTS = 'add_task'
 
 DeadlineExceededError = None
 AppEngine = False
@@ -32,20 +35,20 @@ except:
 MAXIMUM_PAGES_FOR_PARSER = 60
 MAXIMUM_PAGES_PER_SAVE = 40
 
-SITES_CFG = 'sites.xml'
-
-STATE_INITIALIZING = 'initializing'
-STATE_PARSING = 'parsing'
-STATE_EXTRACTING = 'extracting'
-STATE_FINISHED = 'finished'
-STATE_ERROR = 'error'
+# rpc call handler
+# the remote admin server calls this method to dispatch a task onto this server
+def add_task(site):
+    site_entity = storage.query(storage.SITE, siteid=site).get()
+    if not site_entity:
+        storage.add_or_update(storage.SITE,
+                              'siteid',
+                              siteid=site,
+                              state=Site.STATE_INITIALIZING,
+                              lastupdate=datetime.now())
 
 class UpdateManager(object):
 
     def __init__(self, reset=False):
-
-        self.load_site_list()
-
         if reset:
             self.reset()
 
@@ -59,62 +62,37 @@ class UpdateManager(object):
 
             while True:
                 state, data = self.load_state(site)
-                if state == STATE_INITIALIZING:
-                    nextstate = STATE_PARSING
+                if state == Site.STATE_INITIALIZING:
+                    nextstate = Site.STATE_PARSING
                     self.update_state(site, nextstate)
                     continue
-                elif state == STATE_PARSING:
+                elif state == Site.STATE_PARSING:
                     self.parse(site, policy)
-                    nextstate = STATE_EXTRACTING
+                    nextstate = Site.STATE_EXTRACTING
                     self.update_state(site, nextstate)
                     continue
-                elif state == STATE_EXTRACTING:
+                elif state == Site.STATE_EXTRACTING:
                     self.extract(site, policy, data)
-                    nextstate = STATE_FINISHED
+                    nextstate = Site.STATE_FINISHED
                     self.update_state(site, nextstate)
                     continue
-                elif state == STATE_FINISHED or state == STATE_ERROR:
+                elif state == Site.STATE_FINISHED or state == Site.STATE_ERROR:
                     break
         except Exception, ex:
             if not isinstance(ex, DeadlineExceededError):
                 error = traceback.format_exc()
                 logging.error(error)
-                nextstate = STATE_ERROR
+                nextstate = Site.STATE_ERROR
                 self.update_state(site, nextstate, error=error)
-
-
-    def load_site_list(self):
-        cfg = open(os.path.join(CURRENTDIR, SITES_CFG), 'r')
-        soup = BeautifulSoup(cfg)
-
-        self.sites = []
-        for node in soup.findAll('site'):
-            self.sites.append(node.text)
-
-        if AppEngine and 'local' in self.sites:
-            self.sites.remove('local')
-
-        logging.info('Sites are: ' + str(self.sites))
 
     def loadpolicy(self, site):
         config = os.path.join(CURRENTDIR, '../crawler/configs/%s.xml' % site)
         return policy.read_config(config)
 
     def set_working_site(self):
-        for site in self.sites:
-            site_entity = storage.query(storage.SITE, siteid=site).get()
-            if not site_entity:
-                storage.add_or_update(storage.SITE,
-                                      'siteid',
-                                      siteid=site,
-                                      state=STATE_INITIALIZING,
-                                      lastupdate=datetime.now())
-
-                return site
-            elif site_entity.state == STATE_INITIALIZING or \
-                 site_entity.state == STATE_PARSING or \
-                 site_entity.state == STATE_EXTRACTING:
-                return site
+        for site_entity in storage.query(storage.SITE):
+            if Site.isrunning(site_entity.state):
+                return site_entity.siteid
 
         return None
 
@@ -128,8 +106,17 @@ class UpdateManager(object):
         site_entity = storage.query(storage.SITE, siteid=site).get()
         return site_entity.state, site_entity.data
 
-    def update_state(self, site, state, error='', data=''):
-        storage.add_or_update(storage.SITE, 'siteid', siteid=site, state=state, error=error, data=data)
+    def update_state(self, site, state, groupon_count=-1, error='', data=''):
+        params = {}
+        if groupon_count >= 0:
+            params['groupon_count'] = groupon_count
+        
+        # if the site object in storage is missing. we do nothing
+        # this could happen if the datastore is cleared by admin
+        if not storage.query(storage.SITE, siteid=site).get():
+            return
+
+        storage.add_or_update(storage.SITE, 'siteid', siteid=site, state=state, error=error, data=data, **params)
 
     def parse(self, site, policy):
         crawler = SimpleCrawler(policy)
@@ -157,18 +144,20 @@ class UpdateManager(object):
 
         count = 0
         products = {}
+        groupon_count = 0
         for groupon in storage.query(storage.GROUPON, siteid=site):
             products[groupon.title] = groupon
+            groupon_count += 1
 
         for page in crawler.crawled_pages():
             info = extractor.run(parseresult, page)
             if info:
                 title = info[TAG_TITLE]
                 if title not in products:
-                    products[title] = None
-                    storage.add_or_update(storage.GROUPON,
-                                          siteid = site,
-                                          **info)
+                    products[title] = storage.add_or_update(storage.GROUPON,
+                                                            siteid = site,
+                                                            **info)
+                    groupon_count += 1
                 else:
                     if TAG_CITY in info:
                         p = products[title]
@@ -188,7 +177,7 @@ class UpdateManager(object):
             count += 1            
             if count >= MAXIMUM_PAGES_PER_SAVE:
                 data = crawler.save_crawler_state()
-                self.update_state(site, STATE_EXTRACTING, data=data)
+                self.update_state(site, Site.STATE_EXTRACTING, groupon_count=groupon_count, data=data)
                 count = 0
                 continue
 
