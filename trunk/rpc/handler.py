@@ -16,12 +16,14 @@ from rpc.messages import *
 
 LOCAL_SERVER = os.environ['SERVER_NAME']
 
-# the service:module mapping
-SERVICES = {'datastore':'rpc.datastore_query_service'}
-
+# these ip addresses belong to google
 class RemoteCallHandler(webapp.RequestHandler):
+    # the service:module mapping
+    # derived class (usually on different server) should override
+    # this default mapping to use server specific values
+    SERVICES = {}
+
     def authenticate(self):
-        # TODO: add authentication code
         return True
 
     def get(self):
@@ -30,8 +32,9 @@ class RemoteCallHandler(webapp.RequestHandler):
         
 
     def post(self):
-        if not self.authenticate():
-            return
+        # TODO: uncomment the code to be more secure
+        # if not self.authenticate():
+        #     return
 
         self.response.headers['Content-Type'] = 'application/octet-stream'
 
@@ -43,16 +46,17 @@ class RemoteCallHandler(webapp.RequestHandler):
         caller = request._from
         service = request.service
         method = request.method
+        args = request.args
         params = request.params
 
         try:
-            service_call = self.resolve_service_call(service, method)
             return_value = None
             exception = None
             callstack = None
 
+            service_call = self.resolve_service_call(service, method)
             if service_call:
-                return_value = service_call(**params)
+                return_value = service_call(*args, **params)
             else:
                 exception = Exception('Did not find corresponding method!')
         except Exception, ex:
@@ -68,12 +72,12 @@ class RemoteCallHandler(webapp.RequestHandler):
     def resolve_service_call(self, service, method):
         service_module = None
         method_func = None
-        if service in SERVICES:
-            module_name = SERVICES[service]
+        if service in self.SERVICES:
+            module_name = self.SERVICES[service]
             if module_name not in sys.modules:
                 service_module = __import__(module_name)
-            else:
-                service_module = sys.modules[module_name]
+
+            service_module = sys.modules[module_name]
 
         if not service_module:
             logging.error('RPC Handler: Could not find module for service: %s' % service)
@@ -87,12 +91,3 @@ class RemoteCallHandler(webapp.RequestHandler):
 
         return method_func
 
-application = webapp.WSGIApplication(
-                                     [('/rpc', RemoteCallHandler)],
-                                     debug=True)
-
-def main():
-    run_wsgi_app(application)
-
-if __name__ == "__main__":
-    main()

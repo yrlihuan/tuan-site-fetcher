@@ -1,0 +1,48 @@
+<html>
+    <body>
+        <h3>Display datastore on remote</h3>
+        <form action="display" method="post">            
+            <table>
+                <tbody>
+                    <tr>
+                        <td><label>Site Addr:</label></td>
+                        <td><input name="site" type="text"></input></td>
+                    </tr>
+                    <tr>
+                        <td><label>Table:</label></td>
+                        <td><input name="table" type="text"></input></td>
+                    </tr>
+                    <tr>
+                        <td><label>Extra Params:</label></td>
+                        <td><label>Enter Extra Params</label></td>
+                    </tr>
+                    <tr>
+                        <td><input name="param1" type="text"></input></td>
+                        <td><input name="value1" type="text"></input></td>
+                    </tr>
+                    <tr>
+                        <td><input name="param2" type="text"></input></td>
+                        <td><input name="value2" type="text"></input></td>
+                    </tr>
+                </tbody>
+            </table>
+            <input type="submit" value="Run Query">
+        </form>
+        <h3>Clear datastore on remote</h3>
+        <form action="remove" method="post">            
+            <table>
+                <tbody>
+                    <tr>
+                        <td><label>Site Addr:</label></td>
+                        <td><input name="site" type="text"></input></td>
+                    </tr>
+                    <tr>
+                        <td><label>Table:</label></td>
+                        <td><input name="table" type="text"></input></td>
+                    </tr>
+                </tbody>
+            </table>
+            <input type="submit" value="Remove All Entities">
+        </form>
+    </body>
+</html>

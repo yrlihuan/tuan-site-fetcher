@@ -6,6 +6,7 @@ storage api from GAE is used.
 
 This module provides a unified way to access data storage submodule.
 """
+import sys
 import logging
 import traceback
 
@@ -18,17 +19,50 @@ except Exception, ex:
 if not db:
     import sqlitedb as db
 
+MODULE = None
+
 SITE = 'Site'
 PAGE = 'Page'
 PARSER = 'Parser'
 GROUPON = 'Groupon'
+SERVER = 'Server'
+
+TABLES = [SITE, PAGE, PARSER, GROUPON, SERVER]
+
+class Server(db.Model):
+    # server states
+    STATE_UNKNOWN = 'unknown'
+    STATE_IDLE = 'idle'
+    STATE_RUNNING = 'running'
+
+    address = db.StringProperty(required=True)
+    state = db.StringProperty(required=True)
+    lastupdate = db.DateTimeProperty()
+    cpu_usage = db.FloatProperty()
+    outgoing_bandwidth = db.FloatProperty()
+    incomming_bandwidth = db.FloatProperty()
+    datastore = db.FloatProperty()
+    email = db.FloatProperty()
 
 class Site(db.Model):
+    # site states
+    STATE_INITIALIZING = 'initializing'
+    STATE_PARSING = 'parsing'
+    STATE_EXTRACTING = 'extracting'
+    STATE_FINISHED = 'finished'
+    STATE_ERROR = 'error'
+    
     siteid = db.StringProperty(required=True)
     state = db.StringProperty()
+    updateserver = db.StringProperty()
     lastupdate = db.DateTimeProperty()
     error = db.TextProperty()
     data = db.TextProperty()
+    groupon_count = db.IntegerProperty()
+
+    @classmethod
+    def isrunning(cls, state):
+        return state == cls.STATE_INITIALIZING or state == cls.STATE_PARSING or state == cls.STATE_EXTRACTING
 
 class Page(db.Model):
     url = db.StringProperty(required=True)
@@ -126,6 +160,7 @@ def add_or_update(table, primarykey = None, **properties):
             setattr(entity, prop, properties[prop])
         
     entity.put()
+    return entity
 
 def query(table, **restrictions):
     t = get_type_for_table(table)
@@ -153,13 +188,13 @@ def generate_selection(**restrictions):
         return s[:-5]
 
 def get_type_for_table(table):
-    if table == SITE:
-        return Site
-    elif table == PAGE:
-        return Page
-    elif table == PARSER:
-        return Parser
-    elif table == GROUPON:
-        return Groupon
+    global MODULE
+    if not MODULE:
+        MODULE = sys.modules[__name__]
+
+    if table in TABLES and hasattr(MODULE, table):
+        return getattr(MODULE, table)
     else:
         raise TypeError('Can not determine appropriate type for table: %s' % table)
+
+
