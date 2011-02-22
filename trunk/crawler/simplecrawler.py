@@ -9,6 +9,7 @@ import urllib2
 import urlparse
 import re
 import traceback
+import logging
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from modules import BeautifulSoup
@@ -310,16 +311,15 @@ class SimpleCrawler(object):
                         if page_no_params.ignoreparams == None: # it could be None or False
                             markup_old = page_no_params.content
                             markup_new = currentpage.content
-                            # print 'similarity test'
+                            # logging.info('similarity test')
                             page_no_params.ignoreparams = self._similarity_test(markup_old, markup_new)
-                            # print page_no_params.ignoreparams
+                            # logging.info(page_no_params.ignoreparams)
 
                         if page_no_params.ignoreparams:
                             continue
 
             except Exception, e:
-                print 'Exception caught when accessing page ' + currentpage.url
-                print e
+                logging.exception('Exception caught when accessing page ' + currentpage.url)
                 # traceback.print_exc()
                 continue
 
@@ -347,7 +347,6 @@ class SimpleCrawler(object):
                         queue.insert(newpage)
 
 
-            print currentpage.url
             yield currentpage
 
 

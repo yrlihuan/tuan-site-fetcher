@@ -1,9 +1,8 @@
 import struct
+import logging
 
 JPEG_INIT_BITS = '\xff\xd8'
 PNG_INIT_BITS = ''
-
-
 
 class Image(object):
     INIT_TYPE_TABLE = {'JPEG' : '\xff\xd8',
@@ -78,8 +77,8 @@ class Image(object):
                    else: # Not a SOF marker, skip the section
                        marker_len = struct.unpack('>H', self.buf.getrange(pos+2, pos+4))
                        pos += 2 + marker_len[0]
-            except IndexError, ex:
-               print ex
+            except:
+                logging.exception('Failed to extract info from image file')
 
         return width, height
             
