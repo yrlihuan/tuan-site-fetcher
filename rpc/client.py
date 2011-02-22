@@ -11,6 +11,7 @@ if ROOTDIR not in sys.path:
     sys.path.append(ROOTDIR)
 
 from rpc.messages import *
+from google.appengine.api import urlfetch
 
 HTTP_SCHEME = 'http'
 RPC_HANDLER_ADDR = '/rpc'
@@ -31,8 +32,8 @@ def call_remote(server, service, method, *args, **params):
         request_obj = Request(LOCAL_SERVER, server, service, method, *args, **params)
         request_data = MessageBase.serialize(request_obj)
 
-        response = urllib2.urlopen(remote_url, request_data)
-        response_data = response.read()
+        response = urlfetch.fetch(remote_url, method=urlfetch.POST, payload=request_data, deadline=15)
+        response_data = response.content
         response_obj = MessageBase.deserialize(response_data)
     except Exception, ex:
         logging.exception('call_remote: error when executing RPC requests!')
