@@ -150,6 +150,7 @@ class UpdateManager(object):
             groupon_count += 1
 
         for page in crawler.crawled_pages():
+            logging.info('UpdateManager.extract: extract from page %s' % page.url)
             info = extractor.run(parseresult, page)
             if info:
                 title = info[TAG_TITLE]

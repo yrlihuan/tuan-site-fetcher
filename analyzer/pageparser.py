@@ -9,11 +9,16 @@ import os.path
 import re
 import urlparse
 import urllib2
+import logging
 import imageutil
 
 CURRENTDIR = os.path.dirname(__file__)
-sys.path.append(os.path.join(CURRENTDIR, '..'))
+ROOTDIR = os.path.join(CURRENTDIR, '..')
+if ROOTDIR not in sys.path:
+    sys.path.append(ROOTDIR)
+
 from modules import BeautifulSoup
+from modules import imageutil
 from analyzer.tags import *
 
 SITE_CONFIGS = os.path.join(CURRENTDIR, 'keywords.xml')
@@ -227,10 +232,6 @@ class Parser(object):
                     success_count += 1
                 else:
                     results.append(None)
-
-        print 'total pages: %i' % page_count
-        print 'total results: %i' % len(cached_results)
-        print 'total success: %i' % success_count
 
         return results
 
@@ -676,7 +677,7 @@ class Parser(object):
                 return False
 
         except Exception, ex:
-            print ex
+            logging.exception('failed to check the image')
             return False
 
     def _find_depth(self, node, root):

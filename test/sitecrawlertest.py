@@ -13,10 +13,12 @@ from crawler import policy
 from modules import storage
 from analyzer import pageparser
 from analyzer.extractor import Extractor
+from analyzer import updatemanager
 from analyzer.updatemanager import UpdateManager
 import testutil
 
 def test_extractor(**args):
+    updatemanager.add_task('meituan')
     manager = UpdateManager()
     manager.run()
 
