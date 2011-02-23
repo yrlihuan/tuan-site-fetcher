@@ -12,15 +12,6 @@ import cookielib
 import wsgiref.handlers
 from datetime import date
 from urllib import urlencode
-from google.appengine.api import memcache
-from google.appengine.ext.webapp.util import run_wsgi_app
-from google.appengine.runtime import DeadlineExceededError
-from google.appengine.ext.db import TransactionFailedError
-from google.appengine.ext import webapp
-from google.appengine.api import urlfetch
-from google.appengine.api import urlfetch_errors
-from google.appengine.api import urlfetch_stub
-from google.appengine.api import apiproxy_stub_map
 _DEBUG = True
 
 CURRENTDIR = os.path.dirname(__file__)
@@ -29,6 +20,7 @@ if ROOTDIR not in sys.path:
     sys.path.append(ROOTDIR)
 
 from modules.BeautifulSoup import BeautifulSoup
+from modules.BeautifulSoup import NavigableString
 
 CPU = 'cpu_usage'
 OUT_BW = 'outgoing_bandwidth'
@@ -36,7 +28,40 @@ IN_BW = 'incomming_bandwidth'
 STORE = 'datastore'
 EMAIL = 'email'
 
+KEYWORDS = {re.compile('\s*CPU Time'):CPU,
+            re.compile('\s*Outgoing Bandwidth'):OUT_BW,
+            re.compile('\s*Incoming Bandwidth'):IN_BW,
+            re.compile('\s*Total Stored Data'):STORE,
+            re.compile('\s*Recipients Emailed'):EMAIL}
+
 CREDENTIAL_FILE = 'modules/credential'
+
+EMPTY_PATTERN = re.compile(u'\A\s*\Z')
+
+def get_data_for_node(node):
+    value = float(node.text[0:-1])
+
+    desc_text = None
+    for n in node.previousGenerator():
+        if not isinstance(n, NavigableString) or EMPTY_PATTERN.match(n):
+            continue
+
+        desc_text = n
+        break
+
+    if not desc_text:
+        return None, None
+
+    key = None
+    for keyword in KEYWORDS:
+        if keyword.match(desc_text):
+            key = KEYWORDS[keyword]
+            break
+
+    if not key:
+        return None, None
+    else:
+        return key, value
 
 def update():
     appid = os.environ['APPLICATION_ID']
@@ -95,13 +120,19 @@ def update():
     #  redirected to that page automatically 
 
     soup = BeautifulSoup(serv_resp_body)
-    tags = [CPU, OUT_BW, IN_BW, STORE, EMAIL]
     result = {}
-    pos = 0
-    for node in soup.findAll(name='td', attrs={'class':'ae-quota-normal-text'}):
-        value = float(node.text[0:-1])
-        result[tags[pos]] = value
-        pos += 1
+    node_alert = soup.findAll(name='td', attrs={'class':'ae-quota-alert-text'})
+    node_normal = soup.findAll(name='td', attrs={'class':'ae-quota-normal-text'})
+
+    for node in node_alert:
+        key, value = get_data_for_node(node)
+        if key:
+            result[key] = value
+
+    for node in node_normal:
+        key, value = get_data_for_node(node)
+        if key:
+            result[key] = value
     
     return result
 

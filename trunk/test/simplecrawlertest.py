@@ -9,7 +9,7 @@ from crawler import simplecrawler
 from crawler.policy import CrawlerPolicy
 import testutil
 
-output_dir = 'c:\\testresult'
+output_dir = os.path.join(CURRENTDIR, 'crawledpages')
 
 def test_similarity(**args):
     similar_set = [('http://www.nuomi.com/subscribe/add?area=2700010000', 'http://www.nuomi.com/subscribe/add?area=3200010000'),

@@ -14,15 +14,7 @@ ADMIN_PAGE = open('html/datastore.html', 'r').read()
 from rpc import client
 from rpc.services import *
 from html import datastore_query
-
-def validate_site_name(site):
-    domain_surfix = '.appspot.com'
-
-    if domain_surfix in site:
-        return site
-
-    if '.' not in site:
-        return site + domain_surfix
+import utils
 
 class ManageRemoteData(webapp.RequestHandler):
     def get(self):
@@ -30,8 +22,8 @@ class ManageRemoteData(webapp.RequestHandler):
 
 class DisplayRemoteData(webapp.RequestHandler):
     def post(self):
-        site = self.request.get('site')
-        site = validate_site_name(site)
+        server = self.request.get('server')
+        server = utils.validate_site_name(server)
         table = self.request.get('table')
         param1_name = self.request.get('param1')
         param1_value = self.request.get('value1')
@@ -50,7 +42,7 @@ class DisplayRemoteData(webapp.RequestHandler):
             if param2_name != '' and param2_value != '':
                 params[str(param2_name)] = param2_value
 
-            entities = client.call_remote(site, DATASTORE, 'query', table, **params)
+            entities = client.call_remote(server, DATASTORE, 'query', table, **params)
         except client.RPCException, ex:
             exception = ex
 
@@ -63,12 +55,12 @@ class DisplayRemoteData(webapp.RequestHandler):
 
 class RemoveRemoteData(webapp.RequestHandler):
     def post(self):
-        site = self.request.get('site')
-        site = validate_site_name(site)
+        server = self.request.get('server')
+        server = utils.validate_site_name(server)
         table = self.request.get('table')
 
         try:
-            client.call_remote(site, DATASTORE, 'remove', table)
+            client.call_remote(server, DATASTORE, 'remove', table)
             self.response.out.write('Remove successfully')
         except exception, ex:
             self.response.out.write(str(ex))

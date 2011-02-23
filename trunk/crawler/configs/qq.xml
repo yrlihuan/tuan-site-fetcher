@@ -10,6 +10,7 @@
 
     <patterns>
         <p>/[a-z]*$</p>
+        <p>/[a-z]*/deal/show/[a-z0-9]*$</p>
     </patterns>
 
     <maxdepth>3</maxdepth>

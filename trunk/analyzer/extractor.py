@@ -16,6 +16,7 @@ from analyzer.tags import *
 CITIES_CONFIG = 'cities.xml'
 DIGITS_PATTERN = re.compile(u'\d+(\.\d+)?')
 DEFAULT_CITY = u'北京'
+TRIVIAL_TITLE_PREFIX = [u'团购:']
 
 class Extractor(object):
     def __init__(self):
@@ -59,6 +60,9 @@ class Extractor(object):
             if tag in text_fields:
                 info[tag] = self._extract_number(text_fields[tag])
 
+        # post processing:
+        info[TAG_TITLE] = self._remove_trivial_info(info[TAG_TITLE])
+
         return info
 
     def _extract_city(self, linktext):
@@ -101,4 +105,11 @@ class Extractor(object):
         else:
             return 0.0
 
+    def _remove_trivial_info(self, title):
+        for prefix in TRIVIAL_TITLE_PREFIX:
+            pos = title.find(prefix)
+            if pos > 0 and pos < 5:
+                return title[pos+len(prefix):]
+
+        return title
 
