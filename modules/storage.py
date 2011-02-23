@@ -53,6 +53,7 @@ class Site(db.Model):
     STATE_ERROR = 'error'
     
     siteid = db.StringProperty(required=True)
+    workerid = db.FloatProperty()
     state = db.StringProperty()
     updateserver = db.StringProperty()
     lastupdate = db.DateTimeProperty()
@@ -82,7 +83,7 @@ class Parser(db.Model):
     price_now = db.StringProperty()
     details = db.StringProperty()
     image = db.StringProperty()
-    city = db.StringProperty()
+    items = db.StringProperty()
 
 class Groupon(db.Model):
     siteid = db.StringProperty(required=True)
@@ -136,7 +137,7 @@ def linebreak_remover(datatype, properties):
     for prop in properties:
         dbProperty = getattr(datatype, prop)
         if isinstance(dbProperty, db.StringProperty) and '\n' in properties[prop]:
-            properties[prop].replace('\n', '')
+            properties[prop] = properties[prop].replace('\n', '')
 
 def add_or_update(table, primarykey = None, **properties):
     datatype = get_type_for_table(table)

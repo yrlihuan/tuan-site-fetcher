@@ -243,10 +243,10 @@ class SimpleCrawler(object):
 
         urls = set([])
         for link in linksa:
-            urls.add(link['href'])
+            urls.add(link.get('href'))
 
         for link in linksb:
-            url = link['href']
+            url = link.get('href')
             if url not in urls:
                 diff += 1
                 if diff > 2:
@@ -347,6 +347,7 @@ class SimpleCrawler(object):
                         queue.insert(newpage)
 
 
+            logging.info('Crawler: Page crawled! %s' % currentpage.url)
             yield currentpage
 
 

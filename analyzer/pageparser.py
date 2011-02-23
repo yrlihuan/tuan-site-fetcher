@@ -10,7 +10,6 @@ import re
 import urlparse
 import urllib2
 import logging
-import imageutil
 
 CURRENTDIR = os.path.dirname(__file__)
 ROOTDIR = os.path.join(CURRENTDIR, '..')
@@ -18,15 +17,18 @@ if ROOTDIR not in sys.path:
     sys.path.append(ROOTDIR)
 
 from modules import BeautifulSoup
-from modules import imageutil
+from analyzer import imageutil
 from analyzer.tags import *
 
 SITE_CONFIGS = os.path.join(CURRENTDIR, 'keywords.xml')
 CITIES_LIST = os.path.join(CURRENTDIR, 'cities.xml')
 
 DIGITS_PATTERN = re.compile(u'\d+(\.\d+)?')
+INTERGER_PATTERN = re.compile(u'\d+')
 MARKUP_CHAR = re.compile(u'&#\d+;')
-EMPTY_PATTERN = re.compile('\A\s*\Z')
+EMPTY_PATTERN = re.compile(u'\A\s*\Z')
+
+MAX_NODE_TEXT_LEN = 500
 
 DETAILS_KEYWORDS = [u'地址', u'电话', u'本单', u'详情', u'介绍', u'预订', u'预约', u'快递', u'路线', u'交通']
 
@@ -97,12 +99,19 @@ class ParseResult(object):
         site = urlparse.urlparse(url).netloc
 
         for tag in self.info_paths:
-            node = soup.get_node(self.info_paths[tag])
-            if node:
-                if tag == TAG_IMAGE:
-                    result[tag] = get_url_from_img_node(site, node).decode('utf8')
+            path = self.info_paths[tag]
+            if path and path != '':
+                node = soup.get_node(self.info_paths[tag])
+
+                # found node for corresponding tag
+                if node:
+                    if tag == TAG_IMAGE:
+                        result[tag] = get_url_from_img_node(site, node).decode('utf8')
+                    else:
+                        result[tag] = node.text
+                # node missing... wrong markup?
                 else:
-                    result[tag] = node.text
+                    return None
 
         return result
 
@@ -134,6 +143,10 @@ class Parser(object):
             return result
 
         self._get_groupon_title(result, context)
+        if result.error:
+            return result
+
+        self._get_items(result, context)
         if result.error:
             return result
 
@@ -282,8 +295,6 @@ class Parser(object):
                     keywords.add(attr.name, attr.string)
 
         tb_node = self._find_node(node, keywords)[0]
-        if not tb_node:
-            raise Exception()
 
         discount_info = self._extract_using_discount(tb_node, keywords)
         if not discount_info:
@@ -363,6 +374,54 @@ class Parser(object):
         
         result.error = 'can not find product image'
 
+    def _get_items(self, result, context):
+        items_keywords = []
+
+        config = self.siteconfigs.find('site', attrs={'id' : result.site_config})
+        for node in config.findAll(TAG_ITEMS):
+            items_keywords.append(node.text)
+
+        if len(items_keywords) == 0:
+            return
+
+        node = context.soup.get_node(result.info_paths[TAG_TITLE]).parent
+        keynode = None
+        while node != context.soup:
+            nodetext = node.text
+            for keyword in items_keywords:
+                if keyword in nodetext:
+                    match = re.compile(keyword)
+                    keynode = node.find(text=match)
+
+                    if keynode:
+                        break
+
+            if keynode:
+                break
+
+            # if the current node's text exceeds the maximum len, stop searching
+            if len(nodetext) > MAX_NODE_TEXT_LEN:
+                break
+
+            node = node.parent
+
+        if not keynode:
+            return
+
+        search_limit = 2
+        for elem in self._combine_iter([keynode], keynode.previousGenerator()):
+            if not isinstance(elem, BeautifulSoup.NavigableString)  or self._is_empty(elem):
+                continue
+
+            if INTERGER_PATTERN.search(elem):
+                result.info_paths[TAG_ITEMS] = context.soup.get_path(elem)
+                result.info[TAG_ITEMS] = elem
+                return
+                
+            search_limit -= 1
+            if search_limit <= 0:
+                break
+
     def _find_node(self, root, keywords):
         # This function is used to find a node in the html file that contains the keywords
         # It works as follows:
@@ -401,8 +460,7 @@ class Parser(object):
 
                     find_match_for_attr = False
                     for allowed_keyword in keywords.get(attrs[attr_ind]):
-                        match = re.compile(allowed_keyword)
-                        if self._find_match_under_node(match, current_node, prev_node):
+                        if self._find_string_under_node(allowed_keyword, current_node):
                             find_match_for_attr = True
                             break
 
@@ -555,7 +613,7 @@ class Parser(object):
 
         key_attrs = [TAG_DISCOUNT, TAG_ORIGINAL, TAG_SAVED]
         elems = []
-        found_key_attr = False
+        found_key_attr = False # serves as a switch. when it's False, less processing is done
         found_two_attrs = False
 
         # push elems in the markup into elems array
@@ -573,7 +631,11 @@ class Parser(object):
                 if keys:
                     for key in keys:
                         if c.find(key) >= 0:
-                            found_key_attr = True
+                            if found_key_attr:
+                                found_two_attrs = True
+                            else:
+                                found_key_attr = True
+
                             attr_found = attr
                             break
 
@@ -582,7 +644,6 @@ class Parser(object):
 
             if found_key_attr:
                 if attr_found:
-                    found_two_attrs = True
                     elems.append(attr_found)
                     continue
 
@@ -591,13 +652,15 @@ class Parser(object):
                     elems.append((number, c))
                     continue
 
+                # sometimes a key attr is missing in config files.
+                # we need to insert a None to preserve proper representation in this case
                 elems.append(None)
 
         # only one key attr is found. give up trying
         if not found_two_attrs:
             return None
 
-        # the first element is a string, check from the 2nd elem
+        # the first element is a key attr, check from the 2nd elem
         scheme = 0
         for elem in elems[1:]:
             if not elem:
@@ -640,10 +703,7 @@ class Parser(object):
                         result[tag] = elem[1]
                         tag = None
                 else:
-                    if not tag:
-                        tag = elem
-                    else:
-                        raise Exception()
+                    tag = elem
 
         return result
 
@@ -712,11 +772,8 @@ class Parser(object):
         last_slash_pos = path_prefix.rindex('/')
         return context.soup.get_node(path_prefix[0:last_slash_pos])
 
-    def _find_match_under_node(self, match, node, searched_child):
-        if match.search(node.text):
-            return True
-        else:
-            return False
+    def _find_string_under_node(self, search_str, node):
+        return node.text.find(search_str) > 0
 
     def _match_for_discount(self, p1, p2, discount):
         # take 3 values as input, try to find a match of discount value and prices
@@ -764,3 +821,9 @@ class Parser(object):
 
         return True
 
+    def _combine_iter(self, iter1, iter2):
+        for i in iter1:
+            yield i
+
+        for i in iter2:
+            yield i

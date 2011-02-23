@@ -6,6 +6,7 @@ import random
 import re
 import traceback
 import logging
+import time
 from datetime import datetime
 
 CURRENTDIR = os.path.dirname(__file__)
@@ -47,10 +48,11 @@ def add_task(site):
                               lastupdate=datetime.now())
 
 class UpdateManager(object):
-
     def __init__(self, reset=False):
         if reset:
             self.reset()
+
+        self.workerid = self._generate_id()
 
     def run(self):
         try:
@@ -67,9 +69,14 @@ class UpdateManager(object):
                     self.update_state(site, nextstate)
                     continue
                 elif state == Site.STATE_PARSING:
-                    self.parse(site, policy)
-                    nextstate = Site.STATE_EXTRACTING
-                    self.update_state(site, nextstate)
+                    if self.parse(site, policy):
+                        nextstate = Site.STATE_EXTRACTING
+                        error = ''
+                    else:
+                        nextstate = Site.STATE_ERROR
+                        error = 'Failed to parse groupon pages structure'
+
+                    self.update_state(site, nextstate, error=error)
                     continue
                 elif state == Site.STATE_EXTRACTING:
                     self.extract(site, policy, data)
@@ -84,6 +91,10 @@ class UpdateManager(object):
                 logging.error(error)
                 nextstate = Site.STATE_ERROR
                 self.update_state(site, nextstate, error=error)
+            else:
+                # this task is about to be shut down by GAE. do some clean work
+                logging.info('Caught DeadlineExceededError, about to stop execution!')
+                logging.info('The task started from %s, ended at %s', (time.ctime(self.workerid), time.ctime()))
 
     def loadpolicy(self, site):
         config = os.path.join(CURRENTDIR, '../crawler/configs/%s.xml' % site)
@@ -92,7 +103,19 @@ class UpdateManager(object):
     def set_working_site(self):
         for site_entity in storage.query(storage.SITE):
             if Site.isrunning(site_entity.state):
-                return site_entity.siteid
+                # the workerid is set to the point where the last execution is started.
+                # if the new value - the old value < 60 * 10 (10mins), then there's
+                # another worker thread running this task.
+                old_workerid = site_entity.workerid or 0.0
+
+                if old_workerid == 0 or self.workerid - old_workerid > 10 * 60:
+                    site_entity.workerid = self.workerid
+                    site_entity.put()
+                    logging.info('Permission of task execution acquired! Old worker: %f, new worker: %f', old_workerid, self.workerid)
+                    return site_entity.siteid
+                else:
+                    logging.info('Give up task execution. Old worker: %f, new worker: %f', old_workerid, self.workerid)
+                    return None
 
         return None
 
@@ -110,10 +133,12 @@ class UpdateManager(object):
         params = {}
         if groupon_count >= 0:
             params['groupon_count'] = groupon_count
-        
+
+        site_entity = storage.query(storage.SITE, siteid=site).get()
+
         # if the site object in storage is missing. we do nothing
         # this could happen if the datastore is cleared by admin
-        if not storage.query(storage.SITE, siteid=site).get():
+        if not site_entity:
             return
 
         storage.add_or_update(storage.SITE, 'siteid', siteid=site, state=state, error=error, data=data, **params)
@@ -134,7 +159,11 @@ class UpdateManager(object):
         seeds = self._generate_seeds(pages)
         parser_result = parser.probe(seeds)        
 
-        storage.add_or_update(storage.PARSER, siteid=site, **parser_result.info_paths)
+        if parser_result and parser_result.info_paths:
+            storage.add_or_update(storage.PARSER, siteid=site, **parser_result.info_paths)
+            return True
+        else:
+            return False
         
     def extract(self, site, policy, data):
         crawler = SimpleCrawler(policy, data)
@@ -208,7 +237,13 @@ class UpdateManager(object):
     def _generate_seeds(self, pages):
         seeds = []
         cnt = len(pages)
-        seed_num = min(16, cnt / 5)
+        seed_num = min(16, cnt)
+
+        # if count of all pages is less than a certain level
+        # instead of using a randomized algorithm, we just pick the last seed_num pages
+        if cnt - seed_num < 5:
+            return pages[cnt-seed_num:]
+
         seed_list = []
         for i in range(0, seed_num):
             ind = random.randint(0, cnt - 1)
@@ -219,3 +254,7 @@ class UpdateManager(object):
             seeds.append(pages[ind])
 
         return seeds
+
+    def _generate_id(self):
+        return time.time()
+

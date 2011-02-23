@@ -26,11 +26,15 @@ def query(table, limit=0, **restrictions):
 
     return result
 
-def remove(table):
-    if table == '' or table == '*':
-        storage.delete(storage.SITE)
-        storage.delete(storage.GROUPON)
-        storage.delete(storage.PARSER)
+def remove(table, **restrictions):
+    tables = []
+    if not table or table == '' or table == '*':
+        tables.append(storage.SITE)
+        tables.append(storage.GROUPON)
+        tables.append(storage.PARSER)
     else:
-        storage.delete(table)
+        tables.append(table)
+    
+    for t in tables:
+        storage.delete(t, **restrictions)
 

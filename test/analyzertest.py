@@ -5,6 +5,7 @@ import os.path
 import re
 import os
 import webbrowser
+import logging
 
 CURRENTDIR = os.path.dirname(__file__)
 sys.path.append(os.path.join(CURRENTDIR, '..'))
@@ -14,9 +15,9 @@ from analyzer import pageparser
 
 import testutil
 
-test_htmls_dir = 'C:\\testresult\\various_sites'
+test_htmls_dir = os.path.join(CURRENTDIR, 'crawledpages', 'various_sites')
 
-essential_tags = ['price_now', 'original', 'discount', 'save', 'image', 'title']
+essential_tags = ['price_now', 'original', 'discount', 'save', 'image', 'title', 'items']
 
 output_header = u"""
 <html>
@@ -32,18 +33,22 @@ output_site = u"""
 <h1>%(site)s</h1>
 <p>%(title)s</p>
 <table>
-    <tr>
-        <th>原价</th>
-        <th>现价</th>
-        <th>折扣</th>
-        <th>节省</th>
-    </tr>
-    <tr>
-        <th>%(original)s</th>
-        <th>%(price_now)s</th>
-        <th>%(discount)s</th>
-        <th>%(save)s</th>
-    </tr>
+    <tbody>
+        <tr>
+            <th>原价</th>
+            <th>现价</th>
+            <th>折扣</th>
+            <th>节省</th>
+            <th>Items</th>
+        </tr>
+        <tr>
+            <td>%(original)s</td>
+            <td>%(price_now)s</td>
+            <td>%(discount)s</td>
+            <td>%(save)s</td>
+            <td>%(items)s</td>
+        </tr>
+    </tbody>
 </table>
 
 <img src='%(image)s'/>
@@ -77,7 +82,7 @@ def test_site(**args):
 
 def test_various_sites(**args):
     html_files = os.listdir(test_htmls_dir)
-    html_output_path = 'c:\\testresult\\test_results.html'
+    html_output_path = 'test_results.html'
 
     html_output = open(html_output_path, 'w')
     html_output.write(output_header)
@@ -101,24 +106,24 @@ def test_various_sites(**args):
         else:
             print 'Succeed! ' + site_html_file
 
-            if len(result.warnings):
-                print 'Warnings: ' + str(result.warnings)
-            # print_results(result)
+        if len(result.warnings):
+            print 'Warnings: ' + str(result.warnings)
+        # print_results(result)
 
-            site_data = {}
-            site_data['site'] = result.site
-            site_data['error'] = result.error
-            site_data['warnings'] = result.warnings
+        site_data = {}
+        site_data['site'] = result.site
+        site_data['error'] = result.error
+        site_data['warnings'] = result.warnings
 
-            for tag in result.info:
-                site_data[tag] = result.info[tag]
+        for tag in result.info:
+            site_data[tag] = result.info[tag]
 
-            for tag in essential_tags:
-                if tag not in site_data:
-                    site_data[tag] = None
+        for tag in essential_tags:
+            if tag not in site_data:
+                site_data[tag] = None
 
-            site_markup = output_site % site_data
-            html_output.write(site_markup.encode('utf8'))
+        site_markup = output_site % site_data
+        html_output.write(site_markup.encode('utf8'))
 
     html_output.write(output_tailer)
     html_output.close()
@@ -130,6 +135,7 @@ def print_results(result):
         print tag + ': ' + str(result.info[tag])
 
 if __name__ == '__main__':
+    logging.getLogger().setLevel(logging.INFO)
     testutil.run_test(test_various_sites)
     raw_input('Enter to continue...')
 

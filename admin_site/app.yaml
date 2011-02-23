@@ -18,4 +18,5 @@ handlers:
   login: admin
 
 - url: /update/.*
-  script: updateadmin.py
+  script: update.py
+  login: admin
