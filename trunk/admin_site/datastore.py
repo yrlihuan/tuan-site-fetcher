@@ -21,6 +21,27 @@ class ManageRemoteData(webapp.RequestHandler):
         self.response.out.write(ADMIN_PAGE)
 
 class DisplayRemoteData(webapp.RequestHandler):
+    def get(self):
+        server = self.request.get('server')
+        table = self.request.get('table')
+        field = self.request.get('field')
+        value = self.request.get('value')
+
+        out = self.response.out
+
+        try:
+            entity = client.call_remote(server, DATASTORE, 'query', table, **{str(field):value})[0]
+            for prop in vars(entity):
+                out.write('<h1>%s:</h1><br/>%s<br/>' % (prop, unicode(getattr(entity, prop))))
+        except Exception, ex:
+            out.write(str(ex))
+            return
+        
+        
+        self.response.out.write(server)
+        self.response.out.write(table)
+        
+
     def post(self):
         server = self.request.get('server')
         server = utils.validate_site_name(server)
@@ -51,7 +72,7 @@ class DisplayRemoteData(webapp.RequestHandler):
         if exception:
             out.write(str(exception))
         else:
-            out.write(datastore_query.get_html(entities))
+            out.write(datastore_query.get_html(entities, server, table))
 
 class RemoveRemoteData(webapp.RequestHandler):
     def post(self):

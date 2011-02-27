@@ -5,7 +5,7 @@ import cgi
 
 from modules import storage
 
-EXPORTS = ['query', 'remove']
+EXPORTS = ['query', 'remove', 'add_task']
 
 def query(table, limit=0, **restrictions):
     query_result = storage.query(table, **restrictions)
@@ -38,3 +38,8 @@ def remove(table, **restrictions):
     for t in tables:
         storage.delete(t, **restrictions)
 
+def add_task(siteid):
+    if storage.query(storage.SITE, siteid=siteid).get():
+        return
+
+    storage.add_or_update(storage.SITE, siteid=siteid)

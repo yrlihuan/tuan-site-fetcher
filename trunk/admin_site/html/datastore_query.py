@@ -1,7 +1,7 @@
 STYLE = u"""
 <style>
 p {
-max-width: 200px;
+max-width: 500px;
 overflow: hidden;
 white-space: nowrap;
 text-overflow: ellipsis;
@@ -43,7 +43,22 @@ CELL_ITEM = u'''
 </td>
 '''
 
-def get_html(data):
+LINK_ITEM = u'''
+<td>
+    <p>
+        <a href="%s">%s</a>
+    </p>
+</td>
+'''
+
+DISPLAYS = ['url', 'title', 'original', 'current', \
+            'discount', 'bought', 'shop', 'address', \
+            'cpu_usage', 'outgoing_bandwidth', 'incomming_bandwidth', \
+            'siteid', 'updateserver', 'error', 'sites']
+
+LINKABLE = ['url']
+
+def get_html(data, server='', table=''):
     if len(data) == 0:
         return ''
 
@@ -52,7 +67,8 @@ def get_html(data):
     # generate table header
     header_items = ''
     for prop in props:
-        header_items += HEADER_ITEM % prop
+        if prop in DISPLAYS:
+            header_items += HEADER_ITEM % prop
 
     header_row = TABLE_ROW % header_items
 
@@ -61,7 +77,15 @@ def get_html(data):
     for d in data:
         data_items = ''
         for prop in props:
-            data_items += CELL_ITEM % unicode(getattr(d, prop))
+            if prop not in DISPLAYS:
+                continue
+            
+            if prop in LINKABLE:
+                value = getattr(d, prop)
+                link = '/datastore/display?server=%s&table=%s&field=%s&value=%s' % (server, table, prop, value)
+                data_items += LINK_ITEM % (unicode(link), unicode(value))
+            else:
+                data_items += CELL_ITEM % unicode(getattr(d, prop))
 
         data_rows += TABLE_ROW % data_items
 

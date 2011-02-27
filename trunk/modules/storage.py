@@ -30,13 +30,9 @@ SERVER = 'Server'
 TABLES = [SITE, PAGE, PARSER, GROUPON, SERVER]
 
 class Server(db.Model):
-    # server states
-    STATE_UNKNOWN = 'unknown'
-    STATE_IDLE = 'idle'
-    STATE_RUNNING = 'running'
-
     address = db.StringProperty(required=True)
-    state = db.StringProperty(required=True)
+    servertype = db.StringProperty()
+    sites = db.StringProperty()
     lastupdate = db.DateTimeProperty()
     cpu_usage = db.FloatProperty()
     outgoing_bandwidth = db.FloatProperty()
@@ -45,25 +41,12 @@ class Server(db.Model):
     email = db.FloatProperty()
 
 class Site(db.Model):
-    # site states
-    STATE_INITIALIZING = 'initializing'
-    STATE_PARSING = 'parsing'
-    STATE_EXTRACTING = 'extracting'
-    STATE_FINISHED = 'finished'
-    STATE_ERROR = 'error'
-    
     siteid = db.StringProperty(required=True)
-    workerid = db.FloatProperty()
-    state = db.StringProperty()
     updateserver = db.StringProperty()
+    enqueuetime = db.DateTimeProperty()
     lastupdate = db.DateTimeProperty()
     error = db.TextProperty()
-    data = db.TextProperty()
-    groupon_count = db.IntegerProperty()
-
-    @classmethod
-    def isrunning(cls, state):
-        return state == cls.STATE_INITIALIZING or state == cls.STATE_PARSING or state == cls.STATE_EXTRACTING
+    data = db.BlobProperty()
 
 class Page(db.Model):
     url = db.StringProperty(required=True)
@@ -87,15 +70,23 @@ class Parser(db.Model):
 
 class Groupon(db.Model):
     siteid = db.StringProperty(required=True)
-    title = db.StringProperty(required=True)
+    sitename = db.StringProperty()
+    title = db.StringProperty()
+    shop = db.StringProperty()
+    image = db.StringProperty()
+    url = db.StringProperty()
+    address = db.TextProperty()
+    city = db.TextProperty()
+    details = db.TextProperty()
+    detailsimg = db.TextProperty()
+    category = db.StringProperty()
+    bought = db.IntegerProperty()
     original = db.FloatProperty()
     discount = db.FloatProperty()
     saved = db.FloatProperty()
-    items = db.FloatProperty()
-    price_now = db.FloatProperty()
-    image = db.StringProperty()
-    url = db.StringProperty()
-    city = db.TextProperty()
+    current = db.FloatProperty()
+    starttime = db.DateTimeProperty()
+    duetime = db.DateTimeProperty()
 
 class EntityObject(object):
     model_properties_cache = {}
@@ -132,6 +123,8 @@ def text_type_converter(datatype, properties):
         dbProperty = getattr(datatype, prop)
         if isinstance(dbProperty, db.TextProperty):
             properties[prop] = db.Text(properties[prop])
+        elif isinstance(dbProperty, db.BlobProperty):
+            properties[prop] = db.Blob(properties[prop])
 
 def linebreak_remover(datatype, properties):
     for prop in properties:

@@ -10,7 +10,7 @@ from rpc.services import *
 
 class RPCHandler(RemoteCallHandler):
     SERVICES = {DATASTORE:'datastore',
-                SITEUPDATER:'analyzer.updatemanager'}
+                SITEUPDATER:'datastore'}
 
 application = webapp.WSGIApplication(
                                      [('/rpc', RPCHandler)],
