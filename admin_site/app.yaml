@@ -20,3 +20,7 @@ handlers:
 - url: /update/.*
   script: update.py
   login: admin
+
+- url: /cron/.*
+  script: cron.py
+  login: admin

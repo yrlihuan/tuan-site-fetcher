@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<configs>
+    <site id='nuomi'>
+        <processor module="city_html_extractor">
+            <cityurl>http://www.nuomi.com/help/api</cityurl>
+            <url>http://www.nuomi.com/api/dailydeal</url>
+            <param>city=%s</param>
+            <batchquery>1</batchquery>
+        </processor>
+        <processor module="groupon_hao123_extractor"/>
+        <processor module="duplication_remover"/>
+        <processor module="bought_number_updater"/>
+        <processor module="groupon_html_extractor">
+            <details>class:detail-info</details>
+        </processor>
+        <processor module="groupon_updater"/>
+    </site>
+
+    <site id='24quan'>
+        <processor module="groupon_hao123_extractor">
+            <url>http://www.24quan.com/api/alliance.php</url>
+        </processor>
+        <processor module="duplication_remover"/>        
+        <processor module="bought_number_updater"/>
+        <processor module="groupon_html_extractor">
+            <addrdetails>path:/html/body/div[3]/div[2]/div/div/div[2]/div[4]/div/div[2]/div[2]/div/div</addrdetails>
+            <details>path:/html/body/div[3]/div[2]/div/div/div[2]/div[4]/div/div[2]/div</details>
+            <shop>path:/html/body/div[3]/div[2]/div/div/div[2]/div[4]/div/div[2]/div[2]/div/h2</shop>
+        </processor>
+        <processor module="address_extractor"/>
+        <processor module="groupon_updater"/>
+    </site>
+
+    <site id='aibang'>
+        <processor module="groupon_hao123_extractor">
+            <url>http://tuan.aibang.com/api/digest</url>
+        </processor>
+        <processor module="duplication_remover"/>
+        <processor module="tail_remover">
+            <tail>?frm=hao123</tail>
+        </processor>
+        <processor module="bought_number_updater"/>
+        <processor module="groupon_html_extractor">
+            <details>path:/html/body/div/div[6]/div/div[3]/div/div/div/div</details>
+            <shop>path:/html/body/div/div[6]/div/div[3]/div/div/div[2]/div/h1/a</shop>
+        </processor>
+        <processor module="groupon_updater"/>
+    </site>
+
+    <site id='haotehui'>
+        <processor module="groupon_hao123_extractor">
+            <url>http://www.haotehui.com/data/xml?from=api&amp;format=standard</url>
+        </processor>
+        <processor module="tail_remover">
+            <tail>?from=api</tail>
+        </processor>
+    </site>
+</configs>
+

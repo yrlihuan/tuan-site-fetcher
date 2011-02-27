@@ -16,9 +16,6 @@ handlers:
 - url: /testonly
   script: helloworld.py
 
-- url: /update_progress
-  script: status.py
-
 - url: /cron/.*
   script: cron_jobs.py
   login: admin

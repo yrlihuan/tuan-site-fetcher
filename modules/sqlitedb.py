@@ -20,6 +20,16 @@ class Text(unicode):
     raise TypeError('Text() argument should be str or unicode, not %s' %
                     type(arg).__name__)
 
+class Blob(str):
+  def __new__(cls, arg=None):
+    if arg is None:
+      arg = ''
+    if isinstance(arg, str):
+      return super(Blob, cls).__new__(cls, arg)
+
+    raise TypeError('Blob() argument should be str instance, not %s' %
+                    type(arg).__name__)    
+
 def adapt_bool(b):
     return str(b)
 
@@ -33,10 +43,18 @@ def convert_ltext(text):
     result = Text(text, 'utf8')
     return result
 
+def adapt_lstr(s):
+    return buffer(s)
+
+def convert_lstr(buf):
+    return Blob(str(buf))
+
 sqlite3.register_adapter(bool, adapt_bool)
 sqlite3.register_converter('boolean', convert_bool)
 sqlite3.register_adapter(Text, adapt_ltext)
 sqlite3.register_converter('LTEXT', convert_ltext)
+sqlite3.register_adapter(Blob, adapt_lstr)
+sqlite3.register_converter('LSTR', convert_lstr)
 
 SQLITEFILE = 'storage'
 CONN = sqlite3.connect(SQLITEFILE, detect_types=sqlite3.PARSE_DECLTYPES)
@@ -101,39 +119,44 @@ class DBProperty(object):
         self.required = required
 
     def validate(self, value):
-        return isinstance(value, self.Type)
+        return isinstance(value, self.data_type)
 
 Property=DBProperty
 
 class IntegerProperty(DBProperty):
-    Type = int
+    data_type = int
     SqlType = 'INTEGER'
     Default = 0
 
 class DateTimeProperty(DBProperty):
-    Type = datetime.datetime
+    data_type = datetime.datetime
     SqlType = 'TIMESTAMP'
-    Default = datetime.datetime.now()
+    Default = datetime.datetime.utcnow()
 
 class BooleanProperty(DBProperty):
-    Type = bool
+    data_type = bool
     SqlType = 'BOOLEAN'
     Default = False
 
 class StringProperty(DBProperty):
-    Type = basestring
+    data_type = basestring
     SqlType = 'TEXT'
     Default = ''
 
 class FloatProperty(DBProperty):
-    Type = float
+    data_type = float
     SqlType = 'REAL'
     Default = 0.0
 
 class TextProperty(DBProperty):
-    Type = Text
+    data_type = Text
     SqlType = 'LTEXT'
     Default = Text()
+
+class BlobProperty(DBProperty):
+    data_type = Blob
+    SqlType = 'LSTR'
+    Default = Blob()
 
 class Query(object):
     def __init__(self, entity_cls, query_str, **properties):
@@ -225,7 +248,7 @@ class Model(object):
                 prop_value = properties[prop_name]
                 if not prop_attr.validate(prop_value):
                     raise TypeError('%s instead of %s is provided for property %s' \
-                            % (str(type(prop_value)), str(prop_attr.Type), prop_name))
+                            % (str(type(prop_value)), str(prop_attr.data_type), prop_name))
             elif not prop_attr.required:
                 prop_value = prop_attr.Default
             else:
@@ -280,4 +303,10 @@ class Model(object):
     def _random_keyname(self):
         return str(random.randint(0, 1<<30))
 
+def delete(models):
+    for m in models:
+        m.delete()
 
+def put(models):
+    for m in models:
+        m.put()
