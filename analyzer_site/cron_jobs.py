@@ -78,7 +78,7 @@ class UpdateSites(webapp.RequestHandler):
 class ReportStatus(webapp.RequestHandler):
     @classmethod
     def enqueue_job(cls):
-        taskqueue.add(url='/cron/report_status')
+        taskqueue.add(queue_name='reportstatus', url='/cron/report_status')
 
     def post(self):
         logging.info('task ReportStatus started!')

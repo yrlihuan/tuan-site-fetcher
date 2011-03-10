@@ -12,7 +12,9 @@
         <processor module="bought_number_updater"/>
         <processor module="groupon_html_extractor">
             <details>class:detail-info</details>
+            <mapimg>class:map</mapimg>
         </processor>
+        <processor module="address_extractor"/>
         <processor module="groupon_updater"/>
     </site>
 
@@ -23,8 +25,8 @@
         <processor module="duplication_remover"/>        
         <processor module="bought_number_updater"/>
         <processor module="groupon_html_extractor">
-            <addrdetails>path:/html/body/div[3]/div[2]/div/div/div[2]/div[4]/div/div[2]/div[2]/div/div</addrdetails>
             <details>path:/html/body/div[3]/div[2]/div/div/div[2]/div[4]/div/div[2]/div</details>
+            <addrdetails>path:/html/body/div[3]/div[2]/div/div/div[2]/div[4]/div/div[2]/div[2]/div/div</addrdetails>
             <shop>path:/html/body/div[3]/div[2]/div/div/div[2]/div[4]/div/div[2]/div[2]/div/h2</shop>
         </processor>
         <processor module="address_extractor"/>
@@ -42,11 +44,86 @@
         <processor module="bought_number_updater"/>
         <processor module="groupon_html_extractor">
             <details>path:/html/body/div/div[6]/div/div[3]/div/div/div/div</details>
-            <shop>path:/html/body/div/div[6]/div/div[3]/div/div/div[2]/div/h1/a</shop>
+            <shop>path:/html/body/div/div[6]/div/div[3]/div/div/div[2]/div/h1</shop>
         </processor>
+        <processor module="address_extractor"/>
         <processor module="groupon_updater"/>
     </site>
 
+    <site id='lashou'>
+        <processor module="groupon_hao123_extractor">
+            <url>http://open.client.lashou.com/v1/hao123</url>
+        </processor>
+        <processor module="duplication_remover"/>
+        <processor module="bought_number_updater"/>
+        <processor module="groupon_html_extractor">
+            <details>class:l info</details>
+            <shop>path:/html/body/div[3]/div/div[3]/div[2]/div[2]/h3</shop>
+        </processor>
+        <processor module="address_extractor"/>
+        <processor module="groupon_updater"/>
+    </site>
+    
+    <site id='dianping'>
+        <processor module="groupon_hao123_extractor">
+            <url>http://t.dianping.com/api.xml</url>
+        </processor>
+        <processor module="duplication_remover"/>
+        <processor module="bought_number_updater"/>
+        <processor module="groupon_html_extractor">
+            <details>class:dptg-intro</details>
+            <addrdetails>class:dptg-info</addrdetails>
+            <shop>path:/html/body/form/div[2]/div/div/div[3]/div[2]/div/div[2]/p</shop>
+        </processor>
+        <processor module="address_extractor"/>
+        <processor module="groupon_updater"/>
+    </site>
+
+    <site id='didatuan'>
+        <processor module="groupon_hao123_extractor">
+            <url>http://www.didatuan.com/api/baidu.php</url>
+        </processor>
+        <processor module="duplication_remover"/>
+        <processor module="bought_number_updater"/>
+        <processor module="groupon_html_extractor">
+            <addrdetails>id:side-business</addrdetails>
+            <details>path:/html/body/div/div[3]/div[5]/div/div/div/div[2]/div/div/div</details>
+            <shop>path:/html/body/div/div[3]/div[5]/div/div/div/div[2]/div/div/div[2]/div/h2</shop>
+        </processor>
+        <processor module="address_extractor"/>
+        <processor module="groupon_updater"/>
+    </site>
+    
+    <site id='tuanbao'>
+        <processor module="groupon_hao123_extractor">
+            <url>http://p5.groupon.cn/xml/city/cityproduct/hao123/</url>
+        </processor>
+        <processor module="duplication_remover"/>
+        <processor module="bought_number_updater"/>
+        <processor module="groupon_html_extractor">
+            <details>class:box_main</details>
+            <addrdetails>class:box_sidebar</addrdetails>
+            <shop>path:/html/body/div[3]/div[2]/div/div[2]/div[2]/div/div[2]/div/div/h2</shop>
+        </processor>
+        <processor module="address_extractor"/>
+        <processor module="groupon_updater"/>
+    </site>
+    
+    <site id='manzuo'>
+        <processor module="groupon_hao123_extractor">
+            <url>http://api.manzuo.com/hao123.xml</url>
+        </processor>
+        <processor module="duplication_remover"/>
+        <processor module="bought_number_updater"/>
+        <processor module="groupon_html_extractor">
+            <details>class:con_lbottom</details>
+            <mapimg>class:zoommap</mapimg>
+            <shop>path:/html/body/div[3]/div/div[2]/div[2]/div[2]/div/h2</shop>
+        </processor>
+        <processor module="address_extractor"/>
+        <processor module="groupon_updater"/>
+    </site>
+    
     <site id='haotehui'>
         <processor module="groupon_hao123_extractor">
             <url>http://www.haotehui.com/data/xml?from=api&amp;format=standard</url>

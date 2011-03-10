@@ -1,0 +1,5 @@
+cron:
+- description: regularly report the server status to admin server
+  url: /cron/report_status
+  schedule: every 10 minutes
+

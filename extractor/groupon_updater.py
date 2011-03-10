@@ -60,6 +60,10 @@ def convert_type(data):
 
             if dbtype == datetime:
                 dbvalue = time2datetime(value)
+            elif dbtype == basestring:
+                dbvalue = remove_linebreak(value)
+            elif dbtype == float:
+                dbvalue = convert_to_float(value)
             else:
                 dbvalue = dbtype(value)
 
@@ -70,3 +74,9 @@ def convert_type(data):
 def time2datetime(s):
     t = time.gmtime(float(s))
     return datetime(t.tm_year, t.tm_mon, t.tm_mday, t.tm_hour, t.tm_min, t.tm_sec)
+
+def remove_linebreak(s):
+    return s.replace('\n', '')
+
+def convert_to_float(s):
+    return float(s.replace(',', ''))

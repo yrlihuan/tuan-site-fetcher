@@ -1,5 +1,7 @@
 cron:
-- description: dynamically dispatch update jobs to update servers
+- description: dispatch update jobs to update servers
   url: /cron/assign_jobs
   schedule: every 2 hours
-
+- description: periodically sync groupon data
+  url: /cron/sync_groupons
+  schedule: every 2 hours

@@ -10,13 +10,13 @@ APPCFG = '/usr/bin/appcfg.py'
 USERNAME = 'tuanappdev@gmail.com'
 
 def update_app(appdir, appid):
-    command = '%s --email=%s --application=%s update %s' % (APPCFG, USERNAME, appid, appdir)
+    command = '%s --email=%s --insecure --application=%s update %s' % (APPCFG, USERNAME, appid, appdir)
     print '*' * 30
     print command
     return os.system(command)
 
 def update_all():
-    app_dirs = ['admin_site', 'analyzer_site']
+    app_dirs = ['admin_site', 'analyzer_site', 'user_site']
 
     failed = False
     for d in app_dirs:

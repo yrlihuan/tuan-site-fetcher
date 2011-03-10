@@ -9,7 +9,8 @@ from rpc.handler import RemoteCallHandler
 from rpc.services import *
 
 class RPCHandler(RemoteCallHandler):
-    SERVICES = {DATASTORE:'datastore'}
+    SERVICES = {DATASTORE:'datastore',
+                DBSYNC:'dbsync'}
 
 application = webapp.WSGIApplication(
                                      [('/rpc', RPCHandler)],
