@@ -11,7 +11,6 @@ sys.path.append(ANALYZERSITE)
 
 import testutil
 import extractor
-import update_manager
 
 def test_extract_site(siteid='nuomi'):
     groupons = extractor.update_site(siteid)
@@ -32,11 +31,8 @@ def test_extract_site(siteid='nuomi'):
     for prop in props:
         print prop + ': %d' % props[prop]
 
-def test_update_manager():
-    manager = update_manager.UpdateManager()
-    manager.run()
 
 if __name__ == '__main__':
     logging.getLogger().setLevel(logging.INFO)
-    testutil.run_test(test_extract_site, siteid='nuomi')
+    testutil.run_test(test_extract_site, siteid='didatuan')
     # testutil.run_test(test_update_manager)

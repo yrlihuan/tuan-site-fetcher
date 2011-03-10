@@ -282,4 +282,6 @@
     <city id="yongzhou">永州</city>
     <city id="sanmenxia">三门峡</city>
     <city id="zhangjiakou">张家口</city>
+    <city id="quanguo">全国</city>
+    <city id="multi">多个</city>
 </root>

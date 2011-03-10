@@ -1,0 +1,27 @@
+application: tuanuser1
+version: 1
+runtime: python
+api_version: 1
+
+builtins:
+- datastore_admin: on
+
+handlers:
+- url: /
+  script: helloworld.py
+
+- url: /rpc
+  script: rpchandler.py
+
+- url: /testonly
+  script: helloworld.py
+
+- url: /list.*
+  script: useraccess.py
+
+- url: /details.*
+  script: useraccess.py
+
+- url: /cron/.*
+  script: cron_jobs.py
+  login: admin

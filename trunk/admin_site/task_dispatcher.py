@@ -23,6 +23,9 @@ class TaskDispatcher(object):
         tasks = {}
 
         for s in storage.query(storage.SERVER):
+            if s.servertype != 'extractor':
+                continue
+
             # store the amount of mostly used resources
             max_load = 0.0
             for prop in QUOTA_PROPS:

@@ -3,16 +3,11 @@ import sys
 import logging
 import re
 
-CURRENTDIR = os.path.dirname(__file__)
-ROOTDIR = os.path.join(CURRENTDIR, '..')
-sys.path.append(CURRENTDIR)
-sys.path.append(ROOTDIR)
-
 from modules.BeautifulSoup import BeautifulSoup
 from modules import urlfetch
+import cityutil
 
 sample_cities = ['beijing', 'shanghai', 'shenzhen', 'hangzhou']
-CITYCONFIG = os.path.join(CURRENTDIR, 'cities.xml')
 CITYPATTERN = re.compile('[a-zA-Z]+')
 
 def process(data, siteid, cityurl, url, param, batchquery):
@@ -30,11 +25,11 @@ def process(data, siteid, cityurl, url, param, batchquery):
         logging.exception('Error when retrieving city list html file')
         return None
 
-    cities = get_cities(cityhtml)
-    if not cities:
+    citylist = get_cities(cityhtml)
+    if not citylist:
         return None
 
-    urls = generate_groupon_urls(url, param, batchquery, cities)
+    urls = generate_groupon_urls(url, param, batchquery, citylist)
     return urls
 
 def get_cities(html):
@@ -58,20 +53,16 @@ def get_cities(html):
         return None
 
     # the list containing all the cities
-    fulllist = set()
-    citycfg = BeautifulSoup(open(CITYCONFIG, 'r'))
-
-    for n in citycfg.findAll('city'):
-        fulllist.add(n['id'])
+    fulllist = cityutil.city_ids()
 
     # search for possible cities
-    cities = []
+    citylist = []
     items = re.findall(CITYPATTERN, citylisttext)
     for item in items:
         if item in fulllist:
-            cities.append(item)
+            citylist.append(item)
 
-    return cities
+    return citylist
 
 def generate_groupon_urls(base, param, batchquery, cities):
     urls = []

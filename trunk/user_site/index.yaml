@@ -1,0 +1,25 @@
+indexes:
+
+- kind: Groupon
+  properties:
+  - name: cityid
+  - name: bought
+    direction: desc
+
+- kind: Groupon
+  properties:
+  - name: cityid
+  - name: starttime
+    direction: desc
+
+- kind: Groupon
+  properties:
+  - name: cityid
+  - name: discount
+    direction: asc
+
+- kind: Groupon
+  properties:
+  - name: cityid
+  - name: current
+    direction: asc

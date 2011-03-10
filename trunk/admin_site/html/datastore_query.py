@@ -54,7 +54,7 @@ LINK_ITEM = u'''
 DISPLAYS = ['url', 'title', 'original', 'current', \
             'discount', 'bought', 'shop', 'address', \
             'cpu_usage', 'outgoing_bandwidth', 'incomming_bandwidth', \
-            'siteid', 'updateserver', 'error', 'sites']
+            'siteid', 'updateserver', 'error', 'sites', 'servertype']
 
 LINKABLE = ['url']
 

@@ -37,11 +37,16 @@ def process(data, siteid, **params):
         try:
             page = urlfetch.fetch(g.url)
         except:
-            logging.exception('HtmlExtractor: error accessing page %s' % g.url)
+            logging.warning('HtmlExtractor: error accessing page %s' % g.url)
             failed_urls.append(g)
             continue
 
-        markup = BeautifulSoup(page)
+        try:
+            markup = BeautifulSoup(page)
+        except:
+            logging.exception('HtmlExtractor: error when parsing html file!')
+            continue
+
         for prop in props:
             value = props[prop]
             if isinstance(value, basestring):

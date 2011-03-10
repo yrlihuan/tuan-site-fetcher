@@ -23,12 +23,10 @@ def fetch(url, data=None, deadline=None, retries=0):
             response = urlfetch.fetch(url, payload=data, method=method, deadline=deadline)
             return response.content
         except DownloadError, ex:
-            logging.exception('urlfetch: error when accessing %s' % url)
-
             retry_cnt += 1
             if retry_cnt > retries:
-                logging.error('urlfetch: exceeds maximum retry times. gives up')
+                logging.warning('urlfetch: exceeds maximum retry times. gives up (url: %s)', url)
                 raise
             else:
-                logging.error('urlfetch: retries: %d' % retry_cnt)
+                logging.info('urlfetch: retries: %d' % retry_cnt)
                 continue

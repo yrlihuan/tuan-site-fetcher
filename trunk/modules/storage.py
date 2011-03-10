@@ -7,8 +7,10 @@ storage api from GAE is used.
 This module provides a unified way to access data storage submodule.
 """
 import sys
+import os.path
 import logging
 import traceback
+import time
 
 db = None
 try:
@@ -22,14 +24,13 @@ if not db:
 MODULE = None
 
 SITE = 'Site'
-PAGE = 'Page'
-PARSER = 'Parser'
 GROUPON = 'Groupon'
 SERVER = 'Server'
 
-TABLES = [SITE, PAGE, PARSER, GROUPON, SERVER]
+TABLES = [SITE, GROUPON, SERVER]
 
 class Server(db.Model):
+    keyprop = 'address'
     address = db.StringProperty(required=True)
     servertype = db.StringProperty()
     sites = db.StringProperty()
@@ -41,6 +42,7 @@ class Server(db.Model):
     email = db.FloatProperty()
 
 class Site(db.Model):
+    keyprop = 'siteid'
     siteid = db.StringProperty(required=True)
     updateserver = db.StringProperty()
     enqueuetime = db.DateTimeProperty()
@@ -48,35 +50,18 @@ class Site(db.Model):
     error = db.TextProperty()
     data = db.BlobProperty()
 
-class Page(db.Model):
-    url = db.StringProperty(required=True)
-    siteid = db.StringProperty(required=True)
-    data = db.TextProperty()
-    updatedate = db.DateTimeProperty()
-    infopage = db.BooleanProperty()
-    parserid = db.IntegerProperty()
-    linktext = db.StringProperty()
-
-class Parser(db.Model):
-    siteid = db.StringProperty(required=True)
-    title = db.StringProperty()
-    discount = db.StringProperty()
-    original = db.StringProperty()
-    saved = db.StringProperty()
-    price_now = db.StringProperty()
-    details = db.StringProperty()
-    image = db.StringProperty()
-    items = db.StringProperty()
-
 class Groupon(db.Model):
-    siteid = db.StringProperty(required=True)
+    keyprop = 'url'
+    url = db.StringProperty(required=True)
+    siteid = db.StringProperty()
     sitename = db.StringProperty()
     title = db.StringProperty()
-    shop = db.StringProperty()
+    shop = db.TextProperty()
     image = db.StringProperty()
-    url = db.StringProperty()
     address = db.TextProperty()
     city = db.TextProperty()
+    cityid = db.StringProperty()
+    geoinfo = db.StringProperty()
     details = db.TextProperty()
     detailsimg = db.TextProperty()
     category = db.StringProperty()
@@ -85,26 +70,14 @@ class Groupon(db.Model):
     discount = db.FloatProperty()
     saved = db.FloatProperty()
     current = db.FloatProperty()
+    geogrid = db.IntegerProperty()
     starttime = db.DateTimeProperty()
     duetime = db.DateTimeProperty()
 
 class EntityObject(object):
-    model_properties_cache = {}
-
     @classmethod
     def get_properties(cls, db_model_cls):
-        if db_model_cls in cls.model_properties_cache:
-            props = cls.model_properties_cache[db_model_cls]
-        else:
-            props = []
-            model_cls_props = vars(db_model_cls)
-            for p in model_cls_props:
-                if isinstance(model_cls_props[p], db.Property):
-                    props.append(p)
-
-            cls.model_properties_cache[db_model_cls] = props
-
-        return props
+        return db_model_cls._properties
 
     @classmethod
     def clone_from_db_model(cls, db_model):
@@ -117,6 +90,137 @@ class EntityObject(object):
                 setattr(entity_object, prop, value)
 
         return entity_object
+
+    @classmethod
+    def populate_db_model(cls, entity_obj, db_model):
+        properties = cls.get_properties(db_model.__class__)
+
+        updated = False
+        for prop in properties:
+            if hasattr(entity_obj, prop):
+                value = getattr(entity_obj, prop)
+            else:
+                value = properties[prop].default_value()
+
+            oldvalue = getattr(db_model, prop)
+            if value != oldvalue:
+                setattr(db_model, prop, value)
+                updated = True
+
+        return updated
+
+    @classmethod
+    def update_db_model(cls, entity_obj, db_model):
+        properties = vars(entity_obj)
+
+        for prop in properties:
+            setattr(db_model, prop, properties[prop])
+
+class GrouponPatch(object):
+    def __init__(self, site, version, db_models):
+        self.dbtype = Groupon
+        self.keyprop = self.dbtype.keyprop
+        self.site = site
+        self.updated = {}
+        self.deleted = set()
+        self.created = {}
+        self.basevalues = set()
+        self.version = version
+        
+        for entity in db_models:
+            keyvalue = self._get_key(entity)
+            self.basevalues.add(keyvalue)
+
+    def update(self, db_model, prop, value):
+        if getattr(db_model, prop) == value:
+            return
+        else:
+            keyvalue = self._get_key(db_model)
+            entity_obj = self._get_entity_to_update()
+            setattr(entity_obj, prop, value)
+
+    def create(self, **props):
+        keyvalue = props[self.keyprop]
+        entity_obj = self._get_entity_to_add(keyvalue)
+        for prop in props:
+            setattr(entity_obj, prop, props[prop])
+
+    def delete(self, db_model):
+        keyvalue = self._get_key(db_model)
+        if keyvalue not in self.basevalues:
+            raise Exception('GrouponPatch: Trying to delete a nonexist entity!')
+
+        self.deleted.add(keyvalue)
+
+    def apply_patch(self, db_models):
+        if isinstance(db_models, dict):
+            old_entities = db_models
+        else:
+            old_entities = {}
+            for db_model in db_models:
+                keyvalue = self._get_key(db_model)
+                old_entities[keyvalue] = db_model
+
+        updated = []
+        for key in self.updated:
+            if key in old_entities:
+                entity_obj = self.updated[key]
+                db_model = old_entities[key]
+                EntityObject.update_db_model(entity_obj, db_model)
+                updated.append(db_model)
+            else:
+                raise Exception('GrouponPatch: Trying to patch updated items. But db entity not found!')
+
+        for key in self.created:
+            if key in old_entities:
+                raise Exception('GrouponPatch: Trying to patch created items. But db entity already exists!')
+            else:
+                entity_obj = self.created[key]
+                db_model = self.dbtype(key_name=key, **vars(entity_obj))
+                updated.append(db_model)
+
+        deleted = []
+        for key in self.deleted:
+            if key in old_entities:
+                deleted.append(old_entities[key])
+            else:
+                raise Exception('GrouponPatch: Trying to patch deleted items. But db entity not found!')
+
+        db.put(updated)
+        db.delete(deleted)
+
+    def _get_key(self, db_model):
+        return getattr(db_model, self.keyprop)
+
+    def _get_entity_to_update(self, keyvalue):
+        if keyvalue in self.updated:
+            return self.updated[keyvalue]
+        elif keyvalue in self.created:
+            return self.created[keyvalue]
+        elif keyvalue in self.deleted:
+            raise Exception('GrouponPatch: Trying to update a deleted entity!')
+        elif keyvalue in self.basevalues:
+            entity_obj = EntityObject()
+            self.updated[keyvalue] = entity_obj
+            return entity_obj
+        else:
+            raise Exception('GrouponPatch: Trying to update a nonexist entity!')
+
+    def _get_entity_to_add(self, keyvalue):
+        if keyvalue in self.basevalues:
+            raise Exception('GrouponPatch: Trying to create an exist entity!')
+        else:
+            entity_obj = EntityObject()
+            self.created[keyvalue] = entity_obj
+            return entity_obj
+    
+    @classmethod
+    def serialize(cls, patch):
+        return pickle.dumps(patch)
+
+    @classmethod
+    def deserialize(cls, s):
+        return pickle.loads(s)
 
 def text_type_converter(datatype, properties):
     for prop in properties:
@@ -132,28 +236,30 @@ def linebreak_remover(datatype, properties):
         if isinstance(dbProperty, db.StringProperty) and '\n' in properties[prop]:
             properties[prop] = properties[prop].replace('\n', '')
 
-def add_or_update(table, primarykey = None, **properties):
+def add_or_update(table, **properties):
     datatype = get_type_for_table(table)
     text_type_converter(datatype, properties)
     linebreak_remover(datatype, properties)
 
-    if not primarykey or primarykey not in properties:
-        key = None
-        entity = None
-    else:
-        key = str(properties[primarykey])
-        entity = datatype.get_by_key_name(key)
+    primarykey = datatype.keyprop
+    key = properties[primarykey]
+    entity = datatype.get_by_key_name(key)
 
     if not entity:
-        if key:
-            entity = datatype(key_name=key, **properties)
-        else:
-            entity = datatype(**properties)
+        updated = True
+        entity = datatype(key_name=key, **properties)
     else:
+        updated = False
         for prop in properties:
-            setattr(entity, prop, properties[prop])
-        
-    entity.put()
+            oldvalue = getattr(entity, prop)
+            newvalue = properties[prop]
+            if oldvalue != newvalue:
+                updated = True
+                setattr(entity, prop, newvalue)
+
+    if updated:
+        entity.put()
+
     return entity
 
 def query(table, **restrictions):

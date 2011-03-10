@@ -37,11 +37,9 @@ class DisplayRemoteData(webapp.RequestHandler):
             out.write(str(ex))
             return
         
-        
         self.response.out.write(server)
         self.response.out.write(table)
         
-
     def post(self):
         server = self.request.get('server')
         server = utils.validate_site_name(server)
