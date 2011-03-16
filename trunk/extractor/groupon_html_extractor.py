@@ -9,6 +9,8 @@ from extractor.infotags import *
 from modules.BeautifulSoup import BeautifulSoup
 from modules import urlfetch
 
+MAXIMUM_NEW_DATA = 50
+
 def process(data, siteid, **params):
     """
     Extract extra fields from the web page for groupon products
@@ -33,7 +35,18 @@ def process(data, siteid, **params):
             props[prop] = value.split(':')
 
     failed_urls = []
+    updated = []
+    old = []
+
+    cnt = 0
     for g in data:
+        if not g.db_flag and cnt < MAXIMUM_NEW_DATA:
+            updated.append(g)
+            cnt += 1
+        elif g.db_flag:
+            old.append(g)
+
+    for g in updated:
         try:
             page = urlfetch.fetch(g.url)
         except:
@@ -65,9 +78,17 @@ def process(data, siteid, **params):
 
     # If detailed information can not be retrieved from web site page,
     # we remove the entry. The groupon info will be updated next time.
-    newdata = []
-    for g in data:
+    data = []
+    for g in updated:
         if g not in failed_urls:
-            newdata.append(g)
+            g.html_flag = True
+            del g.db_flag
+            data.append(g)    
 
-    return newdata
+    for g in old:
+        g.html_flag = False
+        del g.db_flag
+
+    data.extend(old)
+    return data
+

@@ -91,6 +91,7 @@
             <shop>path:/html/body/div/div[3]/div[5]/div/div/div/div[2]/div/div/div[2]/div/h2</shop>
         </processor>
         <processor module="address_extractor"/>
+        <processor module="google_geoapi_extractor"/>
         <processor module="groupon_updater"/>
     </site>
     

@@ -124,7 +124,7 @@ class DBProperty(object):
 Property=DBProperty
 
 class IntegerProperty(DBProperty):
-    data_type = int
+    data_type = object
     SqlType = 'INTEGER'
     Default = 0
 
