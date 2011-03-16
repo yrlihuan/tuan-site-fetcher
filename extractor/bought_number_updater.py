@@ -12,7 +12,7 @@ from modules.storage import Groupon
 from modules.storage import db
 from modules import storage
 
-MAXIMUM_NEW_DATA = 50
+#MAXIMUM_NEW_DATA = 50
 MINIMUM_CHANGE = 5
 
 def process(data, siteid):
@@ -35,27 +35,17 @@ def process(data, siteid):
     for g in data:
         if g.url in groupons:
             db_entity = groupons.pop(g.url)
-            newvalue = int(g.bought)
-            oldvalue = db_entity.bought
-
-            # in order to reduce datastore API calls, only update the
-            # bought number when the change is significant enough
-            if newvalue - oldvalue > MINIMUM_CHANGE:
-                db_entity.bought = int(g.bought)
-                updated.append(db_entity)
+            g.bought = int(g.bought)
+            g.address = db_entity.address 
+            g.geoinfo = db_entity.geoinfo
+            g.db_flag = True
+            
         else:
-            newdata.append(g)
-
-    # save the bought numbers to datastore
-    if len(updated):
-        db.put(updated)
+            g.db_flag = False
 
     # if there are old entities not availble any longer, remove them
     if len(groupons):
         db.delete(groupons.values())
-
-    # pass new data to further processing
-    if len(newdata) > MAXIMUM_NEW_DATA:
-        return newdata[0:MAXIMUM_NEW_DATA]
-    else:
-        return newdata
+    
+    return data
+    

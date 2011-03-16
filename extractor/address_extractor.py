@@ -27,11 +27,21 @@ def process(data, siteid):
     """
     geofactory = geolib.GridFactory.get_factory()
 
+    updated = []
+    old = []
     for g in data:
+        if g.html_flag:
+            updated.append(g)
+        else:
+            old.append(g)
+
+        del g.html_flag
+
+    for g in updated:
         mapdata = None
         if hasattr(g, 'shop'):
             shop_html = g.shop
-            g.shop = re.sub(MARKUP_PATTERN, '', shop_html)
+            g.shop = re.sub(MARKUP_PATTERN, '', shop_html).strip()
 
         if hasattr(g, 'city'):
             city = g.city
@@ -63,13 +73,14 @@ def process(data, siteid):
                 if geoinfo:
                     g.geoinfo = geoinfo
 
-        if hasattr(g, 'geoinfo'):
+        if hasattr(g, 'geoinfo') and g.geoinfo:
             geoinfo = g.geoinfo.split(';')[0]
             geopt = geolib.GeoPt(geoinfo)
             grid = geofactory.find_enclosure(geopt)
             g.geogrid = grid.get_id()
-
-    return data
+    
+    updated.extend(old)
+    return updated
 
 def get_addr_in_html(markup):
     for tag in markup.recursiveChildGenerator():

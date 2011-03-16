@@ -2,6 +2,7 @@ import urllib2
 import os.path
 import sys
 import logging
+import xml.dom.minidom
 from datetime import datetime
 
 CURRENTDIR = os.path.dirname(__file__)
@@ -9,29 +10,25 @@ ROOTDIR = os.path.join(CURRENTDIR, '..')
 sys.path.append(CURRENTDIR)
 sys.path.append(ROOTDIR)
 
-from modules.BeautifulSoup import BeautifulSoup
-from modules.BeautifulSoup import Tag
 from modules import storage
 
 CONFIG_FILE = os.path.join(CURRENTDIR, 'configs.xml')
 CONFIGS = None
 
 class SiteConfig():
-    def __init__(self, markup):
-        self.siteid = markup['id']
-        self.markup = markup
+    def __init__(self, sitenode):
+        self.siteid = sitenode.attributes['id'].value
+        self.sitenode = sitenode
 
     def get_processors(self):
-        processors = self.markup.findAll('processor')
-
+        processors = self.sitenode.getElementsByTagName('processor')
         for processor in processors:
-            module = processor['module']
+            module = processor.attributes['module'].value
             params = {}
-            for n in processor.childGenerator():
-                if not isinstance(n, Tag):
+            for n in processor.childNodes:
+                if n.nodeType in (n.TEXT_NODE, n.CDATA_SECTION_NODE):
                     continue
-
-                params[str(n.name)] = n.text
+                params[str(n.nodeName)] = n.childNodes[0].data
 
             yield module, params
 
@@ -60,13 +57,14 @@ def load_configs():
         return
 
     configs = {}
-    config_file = open(CONFIG_FILE, 'r')
-    config_markup = BeautifulSoup(config_file)
-    config_file.close()
-
-    for node in config_markup.findAll('site'):
-        siteid = node['id']
-        cfg_obj = SiteConfig(node)
+    try:
+        config_dom = xml.dom.minidom.parse(CONFIG_FILE)
+    except Exception, e:
+        print "xml error!"
+    sitelist = config_dom.getElementsByTagName('site')
+    for sitenode in sitelist:
+        siteid = sitenode.attributes['id'].value
+        cfg_obj = SiteConfig(sitenode)
         configs[siteid] = cfg_obj
         
     CONFIGS = configs
